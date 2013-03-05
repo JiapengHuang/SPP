@@ -1,0 +1,3 @@
+This directory contains the program mkspeckles.  mkspeckles will simulates
+a specklegram using single-scattering statistics and a monte-carlo type
+approach.
