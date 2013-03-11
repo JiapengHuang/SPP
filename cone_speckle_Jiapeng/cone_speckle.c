@@ -52,6 +52,12 @@ typedef struct {
 	double kx,ky,kz;
 } k_t;
 
+/*a field with field strength and wave vector k*/
+typedef struct {
+	k_t k;
+	double field_abs;
+} field_t;
+
 /**
  * This is a method to get the field on a ccd pixel of a scatterer's scattering light. By calculating ray trace,
  * the method will return the index of the ccd pixel.
@@ -122,7 +128,7 @@ __inline k_t random_spp_wavevector(double lambda_spp, gsl_rng *r){
  *  spectrum.
  */
 
-__inline double spp_radiation_co(double lambda_spp, double lambda_light, double radiation_angle,gsl_rng *r){
+__inline double spp_radiation_co(double lambda_spp, double lambda_light, double radiation_angle){
 	double coefficient;
     double k_spp_abs = 2.0 * M_PI /lambda_spp;
     double k_light_abs = 2.0 * M_PI /lambda_light;
@@ -132,6 +138,11 @@ __inline double spp_radiation_co(double lambda_spp, double lambda_light, double 
 	return coefficient;
 }
 
+/**
+ *
+ * This is method to calculate the angle between two scattering process, this method maybe useful after
+ * introduce the scattering coefficiency between two scattering process.
+ *
 __inline double angle_between_scattering(scatterer_t scatt_prev, scatterer_t scatt_curr, scatterer_t scatt_next){
 	double angle = 0.0;
 	double sin_angle = 0.0;
@@ -146,6 +157,19 @@ __inline double angle_between_scattering(scatterer_t scatt_prev, scatterer_t sca
     angle = asin(sin_angle);
     return angle;
 }
+*/
+
+/**
+ * This is method to calculate the angle between two k vector.
+ */
+__inline double angle_between_vector(k_t k_1, k_t k_2){
+	double angle = 0.0;
+	double sin_angle = 0.0;
+   	sin_angle = (k_1.kx*k_2.kx + k_1.ky*k_2.ky  +k_1.kz*k_2.kz)
+   				/(sqrt(k_1.kx*k_2.kx + k_1.ky*k_2.ky  +k_1.kz*k_2.kz )*sqrt(k_1.kx*k_2.kx + k_1.ky*k_2.ky  + k_1.kz*k_2.kz));
+   	angle = asin(sin_angle);
+   	return angle;
+}
 
 __inline int next_scatter_index(double current_scatt_index, int scatterers_number, gsl_rng *r){
 
@@ -156,7 +180,7 @@ __inline int next_scatter_index(double current_scatt_index, int scatterers_numbe
 	return next_scatter_index;
 }
 
-__inline complex double single_field_spp(int first_scatt_index, scatterer_t *scatts, gsl_rng *r){
+__inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gsl_rng *r){
 	/*Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
@@ -165,13 +189,18 @@ __inline complex double single_field_spp(int first_scatt_index, scatterer_t *sca
 	double lambda_spp = 610.0e-9;/*wavelength of spp*/
 	double mean_free_path = 18.0e-6;/*mean free path of spp*/
 	int next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
-	complex double field;
+	field_t field;
 	scatterer_t scatt_cur = scatts[first_scatt_index];
 	scatterer_t scatt_prev = scatts[first_scatt_index];
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	double radi_angle = 0.0;
-	double coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
+	k_t k_in;
+	k_in.kx = 1.0;
+	k_in.ky = 0.0;
+	k_in.kz = 0.0;
+	k_t k_out = random_spp_wavevector(lambda_spp, r);
+	double coefficient = 1.0;
 	while(is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -182,13 +211,15 @@ __inline complex double single_field_spp(int first_scatt_index, scatterer_t *sca
 		scatt_cur = scatt_next;
 		next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
 		scatt_next = scatts[next_scatter_index];
-		radi_angle = angle_between_scattering(scatt_prev, scatt_cur, scatt_next);
-		coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
+		//radi_angle = angle_between_scattering(scatt_prev, scatt_cur, scatt_next);
+		//coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
 		// TODO: the coefficient should be the only first scatter here.
 		// it is not correct here
 	}
-	field = coefficient*cexp(2.0i*M_PI/lambda_spp*pathlength);
-
+	radi_angle = angle_between_vector(k_in, k_out);
+	coefficient = spp_radiation_co(lambda_spp,lambda_light,radi_angle);
+	field.field_abs = sqrt(coefficient)*cexp(2.0i*M_PI/lambda_spp*pathlength);
+	field.k = k_out;
 	return field;
 }
 
