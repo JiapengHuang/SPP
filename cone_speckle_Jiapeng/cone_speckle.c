@@ -171,6 +171,8 @@ __inline double angle_between_vector(k_t k_1, k_t k_2){
    	return angle;
 }
 
+/*
+ * this is the method to create the index of the next scatter */
 __inline int next_scatter_index(double current_scatt_index, int scatterers_number, gsl_rng *r){
 
 	int next_scatter_index = random_int(r,scatterers_number);
@@ -210,7 +212,7 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 		scatt_prev = scatt_cur;
 		scatt_cur = scatt_next;
 		next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
-		scatt_next = scatts[next_scatter_index];
+		//scatt_next = scatts[next_scatter_index];
 		//radi_angle = angle_between_scattering(scatt_prev, scatt_cur, scatt_next);
 		//coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
 		// TODO: the coefficient should be the only first scatter here.
@@ -226,14 +228,15 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 int main(int argc, char **argv) {
 
 	/* program variables */
-	  unsigned int i; /* variables to iterate over */
+	  unsigned int i,j; /* variables to iterate over */
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  int NSCAT = 500; /*the scatterer number*/
-
+	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
+	  field_t **field = malloc(NSCAT*NSA*sizeof(field_t));
 	  /* seed the scatterers */
-	  scatterer_t *scatt = malloc(NSCAT*sizeof(scatterer_t));
-	  assert(scatt!=NULL);
+	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
+	  assert(scatts!=NULL);
 
 	  /* To read the scatterers positions from the file into the scatterer array*/
 	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
@@ -244,12 +247,26 @@ int main(int argc, char **argv) {
 	  }
 
 	  for (i = 0; i < NSCAT; ++i) {
-		fscanf(fp,"%lf %lf %lf",&scatt[i].x,&scatt[i].y,&scatt[i].z);
+		fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
 		fscanf(fp,"\n");
-		printf("%12.12f %12.12f %12.12f\n",scatt[i].x,scatt[i].y,scatt[i].z);
+		printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
 	  }
 	  fclose(fp);
 
+	/* initialize the random number generator */
+	  int rseed = (int)time(NULL);
+	  const gsl_rng_type *T;
+	  gsl_rng *r;
+	  gsl_rng_env_setup();
+	  T = gsl_rng_default;
+	  r = gsl_rng_alloc(T);
+	  gsl_rng_set(r,rseed);
+
+	  for(i=0;i<NSCAT;++i){
+		  for (j = 0; j < NSA; ++j) {
+			field[i][j] = single_field_spp(i, scatts, r);
+		}
+	  }
 
 	  return 0;
 }
