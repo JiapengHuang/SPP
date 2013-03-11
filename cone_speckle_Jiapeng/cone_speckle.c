@@ -109,13 +109,12 @@ __inline bool is_radiation_out(double pathlength, double mean_free_pathlength,gs
  * // TODO: is this true, kz = 0?
  */
 
-__inline k_t random_spp_wavevector(double lambda_spp, gsl_rng *r){
+__inline k_t random_spp_wavevector(double k_spp_abs, gsl_rng *r){
 	k_t k;
-	double k_absolute = 2.0 * M_PI /lambda_spp;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = 0.0;
-	k.kx = k_absolute * sin(theta);
-	k.ky = k_absolute * cos(theta);
+	k.kx = k_spp_abs * sin(theta);
+	k.ky = k_spp_abs * cos(theta);
 	return k;
 }
 
@@ -128,13 +127,13 @@ __inline k_t random_spp_wavevector(double lambda_spp, gsl_rng *r){
  *  spectrum.
  */
 
-__inline double spp_radiation_co(double lambda_spp, double lambda_light, double radiation_angle){
+__inline double spp_radiation_co(double k_spp_abs, double radiation_angle){
 	double coefficient;
-    double k_spp_abs = 2.0 * M_PI /lambda_spp;
-    double k_light_abs = 2.0 * M_PI /lambda_light;
-    double phi = 1400e-10;
-    coefficient = cexp(-1/4*phi*phi*(k_spp_abs*k_spp_abs + k_light_abs*k_light_abs -2*k_light_abs*k_spp_abs
-    		*cos(radiation_angle))*(1-cos(radiation_angle)));
+    double phi = 1400.0e-10;
+    double delta_k_2 = k_spp_abs*k_spp_abs + k_spp_abs*k_spp_abs -2*k_spp_abs*k_spp_abs
+    		*cos(radiation_angle);
+    double exp_co = -1.0/4.0*phi*phi*(delta_k_2);
+    coefficient = cexp(exp_co)*(1-cos(radiation_angle));
 	return coefficient;
 }
 
@@ -166,7 +165,7 @@ __inline double angle_between_vector(k_t k_1, k_t k_2){
 	double angle = 0.0;
 	double sin_angle = 0.0;
    	sin_angle = (k_1.kx*k_2.kx + k_1.ky*k_2.ky  +k_1.kz*k_2.kz)
-   				/(sqrt(k_1.kx*k_2.kx + k_1.ky*k_2.ky  +k_1.kz*k_2.kz )*sqrt(k_1.kx*k_2.kx + k_1.ky*k_2.ky  + k_1.kz*k_2.kz));
+   				/(sqrt(k_1.kx*k_1.kx + k_1.ky*k_1.ky  +k_1.kz*k_1.kz )*sqrt(k_2.kx*k_2.kx + k_2.ky*k_2.ky  + k_2.kz*k_2.kz));
    	angle = asin(sin_angle);
    	return angle;
 }
@@ -188,7 +187,8 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 	 * Here we define the spp happens on the gold film surface.
 	 * */
 	double lambda_light = 632.8e-9; /* wavelength of light */
-	double lambda_spp = 610.0e-9;/*wavelength of spp*/
+	double k_spp_abs = 2.00329*2.0*M_PI/lambda_light*sin(32.0*M_PI/180.0);/*spp wave vector on LAH79 with angle of theta_sp
+	  = 32.0 degree*/
 	double mean_free_path = 18.0e-6;/*mean free path of spp*/
 	int next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
 	field_t field;
@@ -201,7 +201,7 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 	k_in.kx = 1.0;
 	k_in.ky = 0.0;
 	k_in.kz = 0.0;
-	k_t k_out = random_spp_wavevector(lambda_spp, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs, r);
 	double coefficient = 1.0;
 	while(is_radiation_out(pathlength,mean_free_path, r))
 	{
@@ -219,8 +219,8 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 		// it is not correct here
 	}
 	radi_angle = angle_between_vector(k_in, k_out);
-	coefficient = spp_radiation_co(lambda_spp,lambda_light,radi_angle);
-	field.field_abs = sqrt(coefficient)*cexp(2.0i*M_PI/lambda_spp*pathlength);
+	coefficient = spp_radiation_co(k_spp_abs,radi_angle);
+	field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
 	field.k = k_out;
 	return field;
 }
@@ -233,7 +233,8 @@ int main(int argc, char **argv) {
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  int NSCAT = 500; /*the scatterer number*/
 	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
-	  field_t **field = malloc(NSCAT*NSA*sizeof(field_t));
+	  field_t(*field)[NSA] = malloc((sizeof *field)*NSCAT);
+	  assert(field!=NULL);
 	  /* seed the scatterers */
 	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(scatts!=NULL);
@@ -249,7 +250,7 @@ int main(int argc, char **argv) {
 	  for (i = 0; i < NSCAT; ++i) {
 		fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
 		fscanf(fp,"\n");
-		printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
+		//printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
 	  }
 	  fclose(fp);
 
@@ -262,12 +263,13 @@ int main(int argc, char **argv) {
 	  r = gsl_rng_alloc(T);
 	  gsl_rng_set(r,rseed);
 
+	  //printf("%s\n","the program is stated");
 	  for(i=0;i<NSCAT;++i){
 		  for (j = 0; j < NSA; ++j) {
 			field[i][j] = single_field_spp(i, scatts, r);
 		}
 	  }
-
+	  printf("%s\n","the program is finished");
 	  return 0;
 }
 
