@@ -130,10 +130,9 @@ __inline k_t random_spp_wavevector(double k_spp_abs, gsl_rng *r){
 __inline double spp_radiation_co(double k_spp_abs, double radiation_angle){
 	double coefficient;
     double phi = 1400.0e-10;
-    double delta_k_2 = k_spp_abs*k_spp_abs + k_spp_abs*k_spp_abs -2*k_spp_abs*k_spp_abs
-    		*cos(radiation_angle);
-    double exp_co = -1.0/4.0*phi*phi*(delta_k_2);
-    coefficient = cexp(exp_co)*(1-cos(radiation_angle));
+    double delta_k_abs = 2.0*k_spp_abs*sin(radiation_angle/2.0);
+    double exp_co = -1.0/4.0*phi*phi*(delta_k_abs)*(delta_k_abs);
+    coefficient = cexp(exp_co)*(1-cos(radiation_angle))*(1-cos(radiation_angle));
 	return coefficient;
 }
 
@@ -231,15 +230,17 @@ int main(int argc, char **argv) {
 	  unsigned int i,j; /* variables to iterate over */
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
+	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 500; /*the scatterer number*/
 	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
 	  field_t(*field)[NSA] = malloc((sizeof *field)*NSCAT);
 	  assert(field!=NULL);
-	  /* seed the scatterers */
+
+	/* seed the scatterers */
 	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(scatts!=NULL);
 
-	  /* To read the scatterers positions from the file into the scatterer array*/
+	/* To read the scatterers positions from the file into the scatterer array*/
 	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
 
 	  if (fp == 0) {
@@ -263,13 +264,31 @@ int main(int argc, char **argv) {
 	  r = gsl_rng_alloc(T);
 	  gsl_rng_set(r,rseed);
 
-	  //printf("%s\n","the program is stated");
+	/*
+	 *
+	 */
 	  for(i=0;i<NSCAT;++i){
 		  for (j = 0; j < NSA; ++j) {
 			field[i][j] = single_field_spp(i, scatts, r);
 		}
 	  }
-	  printf("%s\n","the program is finished");
+
+	  /* For the perpendicular component of the wave_vector*/
+	  double k_per_abs = 2.00329*2.0*M_PI/lambda_light*cos(32.0*M_PI/180.0);/*wave vector on LAH79 with angle of theta_sp
+	  = 32.0 degree*/
+	  k_t k_per;
+	  k_per.kx = 0.0;
+	  k_per.ky = 0.0;
+	  k_per.kz = k_per_abs;
+
+	  /*
+	   * Add the perpendicular wave-vector on the field.
+	   */
+	  for(i=0;i<NSCAT;++i){
+		  for (j = 0; j < NSA; ++j) {
+			field[i][j].k.kz += k_per.kz;
+		}
+	  }	  printf("%s\n","the program is finished");
 	  return 0;
 }
 
