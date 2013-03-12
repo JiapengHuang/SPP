@@ -55,7 +55,7 @@ typedef struct {
 /*a field with field strength and wave vector k*/
 typedef struct {
 	k_t k;
-	double field_abs;
+	complex double field_abs;
 } field_t;
 
 /**
@@ -225,37 +225,65 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 }
 
 /**
- * This is the code for the free space transform  for one set of all the scatterers.
+ * This is the method for the free space transform  for one set of all the scatterers.
  */
-__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig){
+__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig, int NSCAT){
 	int i;
-	int size = sizeof(field)/sizeof(field_t);
-	scatterer_t *locations = malloc(size*sizeof(scatterer_t));
-	for (i = 0; i < size; ++i) {
-		locations[i].x = scatts_orig.x + field[i].k.kz/field[i].k.kx*z0;
-		locations[i].y = scatts_orig.y + field[i].k.kz/field[i].k.ky*z0;
-		locations[i].z = scatts_orig.z + z0;
+	scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
+	for (i = 0; i < NSCAT; ++i) {
+		locations[i].x = scatts_orig[i].x + field[i].k.kz/field[i].k.kx*z0;
+		locations[i].y = scatts_orig[i].y + field[i].k.kz/field[i].k.ky*z0;
+		locations[i].z = scatts_orig[i].z + z0;
 	}
 	return locations;
 }
 
+/**
+ * This is the method to create the field distribution on the ccd chip from a certain distance for the orignal
+ * scattering plane. Here we put the ccd chip parallize the x-y plane and has a distance from the orignal point
+ * of z0.
+ */
+__inline complex double* field_on_ccd(double distance, scatterer_t *locations, field_t *field, camera_t cam,int NSCAT){
+	  complex double *ccd = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	  bzero(ccd,cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	  double dx = cam.cam_lx/cam.cam_sx;
+	  double dy = cam.cam_ly/cam.cam_sy;
+	  int cam_sx = cam.cam_sx;
+	  int cam_sy = cam.cam_sy;
+	  assert(ccd!=NULL);
+	  int i,pixel_index;
+	  int size = sizeof(locations)/sizeof(scatterer_t);
+	  for (i = 0; i < size; ++i) {
+		  // TODO: double check
+		  pixel_index = locations[i].x/dx + locations[i].y/dy*cam_sy;
+		  ccd[pixel_index] += field[i].field_abs;
+	}
+	  return ccd;
+}
 
 
 int main(int argc, char **argv) {
 
 	/* program variables */
-	  unsigned int i,j; /* variables to iterate over */
+	  unsigned int i,j,k; /* variables to iterate over */
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 500; /*the scatterer number*/
 	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
+	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
+	  double z0 = 0.10; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
-
 	/* seed the scatterers */
 	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(scatts!=NULL);
+	/* the locations */
+	  scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
+	  assert(locations!=NULL);
+
+	  complex double *ccd_one;
+	  complex double *ccd_all;
 
 	/* To read the scatterers positions from the file into the scatterer array*/
 	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
@@ -288,11 +316,14 @@ int main(int argc, char **argv) {
 		  for (j = 0; j < NSCAT; ++j) {
 			field[i][j] = single_field_spp(j, scatts, r);
 		}
+			printf("%f\n",field[i][j].field_abs);
+
 	  }
 
 	  /* For the perpendicular component of the wave_vector*/
 	  double k_per_abs = 2.00329*2.0*M_PI/lambda_light*cos(32.0*M_PI/180.0);/*wave vector on LAH79 with angle of theta_sp
 	  = 32.0 degree*/
+	  field_t *field_one = malloc(NSCAT*sizeof(field_t));
 	  k_t k_per;
 	  k_per.kx = 0.0;
 	  k_per.ky = 0.0;
@@ -304,10 +335,69 @@ int main(int argc, char **argv) {
 	  for(i=0;i<NSA;++i){
 		  for (j = 0; j < NSCAT; ++j) {
 			field[i][j].k.kz += k_per.kz;
+			field_one[j] = field[i][j];
 		}
-	  }	  printf("%s\n","the program is finished");
 
+		  locations = fst_transfer(field_one,z0,scatts,NSCAT);
+		  ccd_one = field_on_ccd(z0,locations,field_one,cam,NSCAT);
 
+		  for (k = 0; k < cam.cam_sx*cam.cam_sy; ++k) {
+			 // printf("%f\n",ccd_one[k]);
+			//ccd_all[k] += ccd_one[k];
+		}
+	  }
+
+	  printf("%s\n","the program is finished");
+
+	  /* output file */
+	    hid_t file,dataset,dataspace;
+	    herr_t status;
+	    hsize_t dims[2]; /* dimensionality of the set */
+	    dims[0]=cam.cam_sx;
+	    dims[1]=cam.cam_sy;
+	    dataspace = H5Screate_simple(2,dims,NULL);
+	    file = H5Fcreate("out.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+	    dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+
+	    double *tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
+	    assert(tmp!=NULL);
+
+	  /* normalize tmp, first by finding max */
+	    double max = 0;
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+	      tmp[i]=cabs(ccd_all[i])*cabs(ccd_all[i]);
+	      if(tmp[i]>max){ max=tmp[i]; }
+
+	    }
+	  //  printf("%g\n",max);
+	  /* then dividing by max */
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+	  	  tmp[i]/=max;
+	    }
+
+	    status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, tmp);
+
+	  /* write the real and imaginary parts as well */
+	    dataset = H5Dcreate1(file,"/er",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){ tmp[i]=creal(ccd_all[i]); }
+	    status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, tmp);
+
+	    dataset = H5Dcreate1(file,"/ei",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){ tmp[i]=cimag(ccd_all[i]); }
+	    status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, tmp);
+
+	  /* clean up */
+	    status = H5Dclose(dataset);
+	    status = H5Sclose(dataspace);
+	    status = H5Fclose(file);
+
+	    free(tmp);
+	    free(ccd_one);
+	    free(ccd_all);
+	    free(scatts);
+	    free(locations);
+
+	    printf("%s","finished");
 	  return 0;
 }
 
