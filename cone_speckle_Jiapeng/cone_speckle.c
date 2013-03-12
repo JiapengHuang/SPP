@@ -224,6 +224,13 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 	return field;
 }
 
+/**
+ * This is the code for the FFT method for one set of all the scatterers.
+ */
+__inline int fft_transfer(field_t *field, )
+
+
+
 int main(int argc, char **argv) {
 
 	/* program variables */
@@ -233,7 +240,7 @@ int main(int argc, char **argv) {
 	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 500; /*the scatterer number*/
 	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
-	  field_t(*field)[NSA] = malloc((sizeof *field)*NSCAT);
+	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
 
 	/* seed the scatterers */
@@ -267,9 +274,9 @@ int main(int argc, char **argv) {
 	/*
 	 *
 	 */
-	  for(i=0;i<NSCAT;++i){
-		  for (j = 0; j < NSA; ++j) {
-			field[i][j] = single_field_spp(i, scatts, r);
+	  for(i=0;i<NSA;++i){
+		  for (j = 0; j < NSCAT; ++j) {
+			field[i][j] = single_field_spp(j, scatts, r);
 		}
 	  }
 
@@ -284,8 +291,8 @@ int main(int argc, char **argv) {
 	  /*
 	   * Add the perpendicular wave-vector on the field.
 	   */
-	  for(i=0;i<NSCAT;++i){
-		  for (j = 0; j < NSA; ++j) {
+	  for(i=0;i<NSA;++i){
+		  for (j = 0; j < NSCAT; ++j) {
 			field[i][j].k.kz += k_per.kz;
 		}
 	  }	  printf("%s\n","the program is finished");
