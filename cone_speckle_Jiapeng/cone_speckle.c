@@ -225,9 +225,19 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 }
 
 /**
- * This is the code for the FFT method for one set of all the scatterers.
+ * This is the code for the free space transform  for one set of all the scatterers.
  */
-__inline int fft_transfer(field_t *field, )
+__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig){
+	int i;
+	int size = sizeof(field)/sizeof(field_t);
+	scatterer_t *locations = malloc(size*sizeof(scatterer_t));
+	for (i = 0; i < size; ++i) {
+		locations[i].x = scatts_orig.x + field[i].k.kz/field[i].k.kx*z0;
+		locations[i].y = scatts_orig.y + field[i].k.kz/field[i].k.ky*z0;
+		locations[i].z = scatts_orig.z + z0;
+	}
+	return locations;
+}
 
 
 
@@ -296,6 +306,8 @@ int main(int argc, char **argv) {
 			field[i][j].k.kz += k_per.kz;
 		}
 	  }	  printf("%s\n","the program is finished");
+
+
 	  return 0;
 }
 
