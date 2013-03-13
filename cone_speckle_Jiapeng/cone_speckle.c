@@ -77,8 +77,8 @@ __inline double distance_ccd_scatter(scatterer_t scatter, camera_t cam, int ccd_
 }
 
 /* Calculate the distance between two scatters*/
-__inline int distance_two_scatters(scatterer_t scatt_a,scatterer_t scatt_b){
-	int distance = 0.0;
+__inline double distance_two_scatters(scatterer_t scatt_a,scatterer_t scatt_b){
+	double distance = 0.0;
 	distance = sqrt((scatt_a.x - scatt_b.x)*(scatt_a.x - scatt_b.x) + ((scatt_a.y - scatt_b.y)*(scatt_a.y - scatt_b.y)) + ((scatt_a.z - scatt_b.z)*(scatt_a.z - scatt_b.z)));
 	return distance;
 }
@@ -132,30 +132,9 @@ __inline double spp_radiation_co(double k_spp_abs, double radiation_angle){
     double phi = 1400.0e-10;
     double delta_k_abs = 2.0*k_spp_abs*sin(radiation_angle/2.0);
     double exp_co = -1.0/4.0*phi*phi*(delta_k_abs)*(delta_k_abs);
-    coefficient = cexp(exp_co)*(1-cos(radiation_angle))*(1-cos(radiation_angle));
+    coefficient =(k_spp_abs*k_spp_abs*k_spp_abs*k_spp_abs)* cexp(exp_co);//*(1-cos(radiation_angle))*(1-cos(radiation_angle));
 	return coefficient;
 }
-
-/**
- *
- * This is method to calculate the angle between two scattering process, this method maybe useful after
- * introduce the scattering coefficiency between two scattering process.
- *
-__inline double angle_between_scattering(scatterer_t scatt_prev, scatterer_t scatt_curr, scatterer_t scatt_next){
-	double angle = 0.0;
-	double sin_angle = 0.0;
-	double vector_a_x = scatt_prev.x - scatt_curr.x;
-	double vector_a_y = scatt_prev.y - scatt_curr.y;
-	double vector_a_z = scatt_prev.z - scatt_curr.z;
-    double vector_b_x = scatt_next.x - scatt_curr.x;
-    double vector_b_y = scatt_next.y - scatt_curr.y;
-    double vector_b_z = scatt_next.z - scatt_curr.z;
-    sin_angle = (vector_a_x*vector_b_x + vector_a_y*vector_b_y +vector_a_z*vector_b_z)
-    		/(sqrt(vector_a_x*vector_a_x + vector_a_y*vector_a_y +vector_a_z*vector_a_z)*sqrt(vector_b_x*vector_b_x + vector_b_y*vector_b_y +vector_b_z*vector_b_z));
-    angle = asin(sin_angle);
-    return angle;
-}
-*/
 
 /**
  * This is method to calculate the angle between two k vector.
@@ -180,7 +159,7 @@ __inline int next_scatter_index(double current_scatt_index, int scatterers_numbe
 	return next_scatter_index;
 }
 
-__inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gsl_rng *r){
+__inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r){
 	/*Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
@@ -189,10 +168,9 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 	double k_spp_abs = 2.00329*2.0*M_PI/lambda_light*sin(32.0*M_PI/180.0);/*spp wave vector on LAH79 with angle of theta_sp
 	  = 32.0 degree*/
 	double mean_free_path = 18.0e-6;/*mean free path of spp*/
-	int next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
+	int next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r);
 	field_t field;
 	scatterer_t scatt_cur = scatts[first_scatt_index];
-	scatterer_t scatt_prev = scatts[first_scatt_index];
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	double radi_angle = 0.0;
@@ -202,16 +180,15 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 	k_in.kz = 0.0;
 	k_t k_out = random_spp_wavevector(k_spp_abs, r);
 	double coefficient = 1.0;
-	while(is_radiation_out(pathlength,mean_free_path, r))
+	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
 		 * Radiates to the next scatterer.
 		 */
 		pathlength += distance_two_scatters(scatt_cur, scatt_next);
-		scatt_prev = scatt_cur;
 		scatt_cur = scatt_next;
-		next_scatterer_index = next_scatter_index(first_scatt_index,sizeof(scatts),r);
-		//scatt_next = scatts[next_scatter_index];
+		next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r);
+		scatt_next = scatts[next_scatterer_index];
 		//radi_angle = angle_between_scattering(scatt_prev, scatt_cur, scatt_next);
 		//coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
 		// TODO: the coefficient should be the only first scatter here.
@@ -227,12 +204,11 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts, gs
 /**
  * This is the method for the free space transform  for one set of all the scatterers.
  */
-__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig, int NSCAT){
+__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig,int NSCAT, scatterer_t *locations){
 	int i;
-	scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
 	for (i = 0; i < NSCAT; ++i) {
-		locations[i].x = scatts_orig[i].x + field[i].k.kz/field[i].k.kx*z0;
-		locations[i].y = scatts_orig[i].y + field[i].k.kz/field[i].k.ky*z0;
+		locations[i].x = scatts_orig[i].x + field[i].k.kx/field[i].k.kz*z0;
+		locations[i].y = scatts_orig[i].y + field[i].k.ky/field[i].k.kz*z0;
 		locations[i].z = scatts_orig[i].z + z0;
 	}
 	return locations;
@@ -243,21 +219,20 @@ __inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatt
  * scattering plane. Here we put the ccd chip parallize the x-y plane and has a distance from the orignal point
  * of z0.
  */
-__inline complex double* field_on_ccd(double distance, scatterer_t *locations, field_t *field, camera_t cam,int NSCAT){
-	  complex double *ccd = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
-	  bzero(ccd,cam.cam_sx*cam.cam_sy*sizeof(complex double));
-	  double dx = cam.cam_lx/cam.cam_sx;
-	  double dy = cam.cam_ly/cam.cam_sy;
+__inline complex double* field_on_ccd(double distance, scatterer_t *locations, field_t *field, camera_t cam,int NSCAT, complex double *ccd){
+	  double dx = cam.cam_lx/(cam.cam_sx-1);
+	  double dy = cam.cam_ly/(cam.cam_sy-1);
 	  int cam_sx = cam.cam_sx;
 	  int cam_sy = cam.cam_sy;
 	  assert(ccd!=NULL);
 	  int i,pixel_index;
-	  int size = sizeof(locations)/sizeof(scatterer_t);
+	  int size = NSCAT;
 	  for (i = 0; i < size; ++i) {
 		  // TODO: double check
-		  pixel_index = locations[i].x/dx + locations[i].y/dy*cam_sy;
+		  pixel_index = ((int)((locations[i].x+cam.cam_lx/2)/dx)*cam_sy) + (int)((locations[i].y+cam.cam_ly/2)/dy);
 		  ccd[pixel_index] += field[i].field_abs;
 	}
+
 	  return ccd;
 }
 
@@ -267,12 +242,12 @@ int main(int argc, char **argv) {
 	/* program variables */
 	  unsigned int i,j,k; /* variables to iterate over */
 	  double x,y,z;
-	  double scanxy = 15e-6; /* the boundary of the region */
+	  double scanxy = 15e-4; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
-	  int NSCAT = 500; /*the scatterer number*/
-	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
+	  int NSCAT = 100; /*the scatterer number*/
+	  int NSA = 3600; /* the simulation iteration for the angle for each scatter*/
 	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
-	  double z0 = 0.10; /* the camera distance from the orginal plane*/
+	  double z0 = 0.1; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
 	/* seed the scatterers */
@@ -282,8 +257,11 @@ int main(int argc, char **argv) {
 	  scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(locations!=NULL);
 
-	  complex double *ccd_one;
-	  complex double *ccd_all;
+	  complex double *ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	  complex double *ccd_one = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	  bzero(ccd_one,cam.cam_sx*cam.cam_sy*sizeof(complex double));
+
 
 	/* To read the scatterers positions from the file into the scatterer array*/
 	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
@@ -314,10 +292,8 @@ int main(int argc, char **argv) {
 	 */
 	  for(i=0;i<NSA;++i){
 		  for (j = 0; j < NSCAT; ++j) {
-			field[i][j] = single_field_spp(j, scatts, r);
+			field[i][j] = single_field_spp(j, scatts, NSCAT, r);
 		}
-			printf("%f\n",field[i][j].field_abs);
-
 	  }
 
 	  /* For the perpendicular component of the wave_vector*/
@@ -338,12 +314,11 @@ int main(int argc, char **argv) {
 			field_one[j] = field[i][j];
 		}
 
-		  locations = fst_transfer(field_one,z0,scatts,NSCAT);
-		  ccd_one = field_on_ccd(z0,locations,field_one,cam,NSCAT);
+		  locations = fst_transfer(field_one,z0,scatts,NSCAT, locations);
+		  ccd_one = field_on_ccd(z0,locations,field_one,cam,NSCAT,ccd_one);
 
 		  for (k = 0; k < cam.cam_sx*cam.cam_sy; ++k) {
-			 // printf("%f\n",ccd_one[k]);
-			//ccd_all[k] += ccd_one[k];
+			  ccd_all[k] += ccd_one[k];
 		}
 	  }
 
