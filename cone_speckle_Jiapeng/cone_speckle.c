@@ -242,12 +242,12 @@ int main(int argc, char **argv) {
 	/* program variables */
 	  unsigned int i,j,k; /* variables to iterate over */
 	  double x,y,z;
-	  double scanxy = 15e-4; /* the boundary of the region */
+	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
-	  int NSCAT = 100; /*the scatterer number*/
-	  int NSA = 3600; /* the simulation iteration for the angle for each scatter*/
-	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
-	  double z0 = 0.1; /* the camera distance from the orginal plane*/
+	  int NSCAT = 500; /*the scatterer number*/
+	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
+	  camera_t cam = {0.20,0.20,256,256}; /*initialize the cam struct*/
+	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
 	/* seed the scatterers */
@@ -277,6 +277,10 @@ int main(int argc, char **argv) {
 		//printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
 	  }
 	  fclose(fp);
+
+	  //scatts[500].x = 5.0e-6;
+	  //scatts[500].y = 4.0e-6;
+	  //scatts[500].z = 0.2e-6;
 
 	/* initialize the random number generator */
 	  int rseed = (int)time(NULL);
@@ -349,6 +353,37 @@ int main(int argc, char **argv) {
 	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
 	  	  tmp[i]/=max;
 	    }
+
+	    /**
+	     * Write the tmp array as a way to do the cross-correlation function.
+	     */
+	    FILE *fp_tmp = fopen("tmp_500.txt","w");
+
+	    if (fp_tmp == 0) {
+	  	fprintf(stderr, "failed to open the file");
+	  	exit(1);
+	    }
+
+	    int size_none_zero = 0;
+
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+	    	if(tmp[i]!=0.0){
+	    		++size_none_zero;
+	    	}
+	    }
+
+	    double *tmp_N = malloc(size_none_zero*sizeof(double));
+	    j = 0;
+	    for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+	    	if(tmp[i]!=0.0){
+	    		tmp_N[j] = tmp[i];
+	    		j++;
+	    	}
+	    }
+	    for (i = 0; i < size_none_zero; ++i) {
+	  	fprintf(fp_tmp,"%-12.12f\n",tmp_N[i]);
+	    }
+	    fclose(fp_tmp);
 
 	    status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, tmp);
 
