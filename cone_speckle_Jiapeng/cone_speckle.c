@@ -58,6 +58,14 @@ typedef struct {
 	complex double field_abs;
 } field_t;
 
+/* a struct stands for the index of lower and upper bounds*/
+typedef struct{
+	int index;
+	double lower_bound;
+	double upper_bound;
+} index_bounds;
+
+
 /**
  * This is a method to get the field on a ccd pixel of a scatterer's scattering light. By calculating ray trace,
  * the method will return the index of the ccd pixel.
@@ -150,16 +158,65 @@ __inline double angle_between_vector(k_t k_1, k_t k_2){
 
 /*
  * this is the method to create the index of the next scatter */
-__inline int next_scatter_index(double current_scatt_index, int scatterers_number, gsl_rng *r){
-
-	int next_scatter_index = random_int(r,scatterers_number);
-	while(next_scatter_index == scatterers_number){
-		next_scatter_index = random_int(r,scatterers_number);
+__inline int next_scatter_index(int current_index,int NSCAT, gsl_rng *r, index_bounds *matrix){
+	int next_scatter_index,i;
+	double random_probability = 0.0;
+	random_probability = random_double_range(r, 0.0, 1.0);
+	for (i = 0; i < NSCAT-1; ++i) {
+		if (random_probability<matrix[i].upper_bound && random_probability > matrix[i].lower_bound) {
+			next_scatter_index = matrix[i].index;
+		}
 	}
 	return next_scatter_index;
 }
 
-__inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r){
+/**
+ * This is a method to create a conductance matrix
+ *
+ */
+__inline int conduc_matrix(int NSCAT,scatterer_t *scatts,int scatt_index, index_bounds *matrix){
+	double coeff[NSCAT-1];
+	int i,j;
+	double pathlength, coeff_sum;
+	for (i = 0; i < NSCAT; ++i) {
+		if (i!=scatt_index) {
+			pathlength = distance_two_scatters(scatts[i],scatts[scatt_index]);
+			pathlength *= 1.0e+6;
+			coeff[i] = 1/(pathlength*pathlength*pathlength);
+			coeff_sum += coeff[i];
+		}
+	}
+	for (i = 0; i < NSCAT; ++i) {
+		if (i!=scatt_index) {
+			coeff[i] = coeff[i]/coeff_sum ;
+		}
+	}
+
+	for (i = 0; i < NSCAT; ++i) {
+		if (i!=scatt_index) {
+			//printf("%f   %d\n", coeff[i],i) ;
+		}
+	}
+
+	coeff_sum = 0.0;
+	for (i = 0,j=0; i < NSCAT; ++i,++j) {
+		if (i!=scatt_index) {
+
+			matrix[j].index = i;
+			matrix[j].lower_bound = coeff_sum;
+			coeff_sum += coeff[i];
+			matrix[j].upper_bound = coeff_sum;
+		} else {
+			--j;
+		}
+	}
+
+	return 0;
+}
+
+
+
+__inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r, double *free_path, int free_path_index,index_bounds *matrix){
 	/*Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
@@ -168,7 +225,8 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int
 	double k_spp_abs = 2.00329*2.0*M_PI/lambda_light*sin(32.0*M_PI/180.0);/*spp wave vector on LAH79 with angle of theta_sp
 	  = 32.0 degree*/
 	double mean_free_path = 18.0e-6;/*mean free path of spp*/
-	int next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r);
+	int next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r,matrix);
+	int curr_scatterer_index = first_scatt_index;
 	field_t field;
 	scatterer_t scatt_cur = scatts[first_scatt_index];
 	scatterer_t scatt_next = scatts[next_scatterer_index];
@@ -187,13 +245,15 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int
 		 */
 		pathlength += distance_two_scatters(scatt_cur, scatt_next);
 		scatt_cur = scatt_next;
-		next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r);
+		curr_scatterer_index = next_scatterer_index;
+		next_scatterer_index = next_scatter_index(curr_scatterer_index,NSCAT,r,matrix);
 		scatt_next = scatts[next_scatterer_index];
 		//radi_angle = angle_between_scattering(scatt_prev, scatt_cur, scatt_next);
 		//coefficient = spp_radiation_co(lambda_spp, lambda_light, radi_angle,r);
 		// TODO: the coefficient should be the only first scatter here.
 		// it is not correct here
 	}
+	free_path[free_path_index] = pathlength;
 	radi_angle = angle_between_vector(k_in, k_out);
 	coefficient = spp_radiation_co(k_spp_abs,radi_angle);
 	field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
@@ -232,7 +292,6 @@ __inline complex double* field_on_ccd(double distance, scatterer_t *locations, f
 		  pixel_index = ((int)((locations[i].x+cam.cam_lx/2)/dx)*cam_sy) + (int)((locations[i].y+cam.cam_ly/2)/dy);
 		  ccd[pixel_index] += field[i].field_abs;
 	}
-
 	  return ccd;
 }
 
@@ -244,9 +303,9 @@ int main(int argc, char **argv) {
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
-	  int NSCAT = 500; /*the scatterer number*/
-	  int NSA = 360; /* the simulation iteration for the angle for each scatter*/
-	  camera_t cam = {0.20,0.20,256,256}; /*initialize the cam struct*/
+	  int NSCAT = 100; /*the scatterer number*/
+	  int NSA = 36; /* the simulation iteration for the angle for each scatter*/
+	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
 	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
@@ -256,6 +315,8 @@ int main(int argc, char **argv) {
 	/* the locations */
 	  scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(locations!=NULL);
+	/*free path array*/
+	  double *free_path = malloc(NSA*NSCAT*sizeof(double));
 
 	  complex double *ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
@@ -278,6 +339,19 @@ int main(int argc, char **argv) {
 	  }
 	  fclose(fp);
 
+	  index_bounds (*Matrix)[NSCAT-1] = malloc((sizeof *Matrix)*NSCAT);
+	  index_bounds *matrix;
+	  for (i = 0; i < NSCAT; ++i) {
+		  matrix = Matrix[i];
+		  conduc_matrix(NSCAT, scatts, i, matrix);
+
+		for (k = 0; k < NSCAT-1; ++k) {
+			//printf("%12.12f\n",Matrix[i][k].lower_bound);
+		}
+		printf("%d\n",i);
+	  }
+
+	  printf("%s","conductive matrix finished");
 	  //scatts[500].x = 5.0e-6;
 	  //scatts[500].y = 4.0e-6;
 	  //scatts[500].z = 0.2e-6;
@@ -292,12 +366,14 @@ int main(int argc, char **argv) {
 	  gsl_rng_set(r,rseed);
 
 	/*
-	 *
+	 *Create the path length array
 	 */
 	  for(i=0;i<NSA;++i){
 		  for (j = 0; j < NSCAT; ++j) {
-			field[i][j] = single_field_spp(j, scatts, NSCAT, r);
+			matrix = Matrix[j];
+			field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),matrix);
 		}
+
 	  }
 
 	  /* For the perpendicular component of the wave_vector*/
@@ -335,7 +411,7 @@ int main(int argc, char **argv) {
 	    dims[0]=cam.cam_sx;
 	    dims[1]=cam.cam_sy;
 	    dataspace = H5Screate_simple(2,dims,NULL);
-	    file = H5Fcreate("out.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+	    file = H5Fcreate("out_2.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	    dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
 	    double *tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
@@ -384,6 +460,22 @@ int main(int argc, char **argv) {
 	  	fprintf(fp_tmp,"%-12.12f\n",tmp_N[i]);
 	    }
 	    fclose(fp_tmp);
+
+
+	    /**
+	     * Write the free path array as a way to do the cross-correlation function.
+	     */
+	    FILE *fp_path = fopen("free_path.txt","w");
+
+	    if (fp_path == 0) {
+	  	fprintf(stderr, "failed to open the file");
+	  	exit(1);
+	    }
+	    for (i = 0; i < NSA*NSCAT; ++i) {
+	  	fprintf(fp_path,"%-12.12f\n",free_path[i]);
+	    }
+	    fclose(fp_path);
+
 
 	    status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, tmp);
 
