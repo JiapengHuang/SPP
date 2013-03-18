@@ -46,7 +46,7 @@ int main(int argc, char **argv){
   /* program variables */
   unsigned int i; /* variables to iterate over */
   double scanxy = 15e-6; /* the boundary of the region */
-  int NSCAT = 500; /*the scatterer number*/
+  int NSCAT = 512; /*the scatterer number*/
 
   /* seed the scatterers */
   scatterer_t *scatt = malloc(NSCAT*sizeof(scatterer_t));

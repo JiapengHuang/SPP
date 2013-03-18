@@ -54,6 +54,7 @@ typedef struct {
 
 /*a field with field strength and wave vector k*/
 typedef struct {
+	int scatterer_index; // stands for which scatterer generate the field;
 	k_t k;
 	complex double field_abs;
 } field_t;
@@ -165,6 +166,7 @@ __inline int next_scatter_index(int current_index,int NSCAT, gsl_rng *r, index_b
 	for (i = 0; i < NSCAT-1; ++i) {
 		if (random_probability<matrix[i].upper_bound && random_probability > matrix[i].lower_bound) {
 			next_scatter_index = matrix[i].index;
+			break;
 		}
 	}
 	return next_scatter_index;
@@ -258,6 +260,7 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int
 	coefficient = spp_radiation_co(k_spp_abs,radi_angle);
 	field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
 	field.k = k_out;
+	field.scatterer_index = curr_scatterer_index;
 	return field;
 }
 
@@ -267,9 +270,9 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int
 __inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig,int NSCAT, scatterer_t *locations){
 	int i;
 	for (i = 0; i < NSCAT; ++i) {
-		locations[i].x = scatts_orig[i].x + field[i].k.kx/field[i].k.kz*z0;
-		locations[i].y = scatts_orig[i].y + field[i].k.ky/field[i].k.kz*z0;
-		locations[i].z = scatts_orig[i].z + z0;
+		locations[i].x = scatts_orig[field[i].scatterer_index].x + field[i].k.kx/field[i].k.kz*z0;
+		locations[i].y = scatts_orig[field[i].scatterer_index].y + field[i].k.ky/field[i].k.kz*z0;
+		locations[i].z = scatts_orig[field[i].scatterer_index].z + z0;
 	}
 	return locations;
 }
@@ -303,9 +306,9 @@ int main(int argc, char **argv) {
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
-	  int NSCAT = 100; /*the scatterer number*/
-	  int NSA = 36; /* the simulation iteration for the angle for each scatter*/
-	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
+	  int NSCAT = 64; /*the scatterer number*/
+	  int NSA = 50000*50; /* the simulation iteration for the angle for each scatter*/
+	  camera_t cam = {0.20,0.20,128,128}; /*initialize the cam struct*/
 	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
@@ -320,9 +323,6 @@ int main(int argc, char **argv) {
 
 	  complex double *ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
-	  complex double *ccd_one = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
-	  bzero(ccd_one,cam.cam_sx*cam.cam_sy*sizeof(complex double));
-
 
 	/* To read the scatterers positions from the file into the scatterer array*/
 	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
@@ -344,14 +344,13 @@ int main(int argc, char **argv) {
 	  for (i = 0; i < NSCAT; ++i) {
 		  matrix = Matrix[i];
 		  conduc_matrix(NSCAT, scatts, i, matrix);
-
 		for (k = 0; k < NSCAT-1; ++k) {
-			//printf("%12.12f\n",Matrix[i][k].lower_bound);
+			printf("%12.12f   %d     ",Matrix[i][k].upper_bound,Matrix[i][k].index);
 		}
 		printf("%d\n",i);
 	  }
 
-	  printf("%s","conductive matrix finished");
+	  printf("%s\n","conductive matrix finished");
 	  //scatts[500].x = 5.0e-6;
 	  //scatts[500].y = 4.0e-6;
 	  //scatts[500].z = 0.2e-6;
@@ -373,33 +372,31 @@ int main(int argc, char **argv) {
 			matrix = Matrix[j];
 			field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),matrix);
 		}
-
 	  }
 
 	  /* For the perpendicular component of the wave_vector*/
 	  double k_per_abs = 2.00329*2.0*M_PI/lambda_light*cos(32.0*M_PI/180.0);/*wave vector on LAH79 with angle of theta_sp
 	  = 32.0 degree*/
 	  field_t *field_one = malloc(NSCAT*sizeof(field_t));
-	  k_t k_per;
-	  k_per.kx = 0.0;
-	  k_per.ky = 0.0;
-	  k_per.kz = k_per_abs;
+
+	  printf("%s\n","field generation finished");
+
 
 	  /*
 	   * Add the perpendicular wave-vector on the field.
 	   */
+
 	  for(i=0;i<NSA;++i){
 		  for (j = 0; j < NSCAT; ++j) {
-			field[i][j].k.kz += k_per.kz;
-			field_one[j] = field[i][j];
+			field[i][j].k.kz += k_per_abs;
 		}
+	  }
 
+	  for(i=0;i<NSA;++i)
+	  {
+		  field_one = field[i];
 		  locations = fst_transfer(field_one,z0,scatts,NSCAT, locations);
-		  ccd_one = field_on_ccd(z0,locations,field_one,cam,NSCAT,ccd_one);
-
-		  for (k = 0; k < cam.cam_sx*cam.cam_sy; ++k) {
-			  ccd_all[k] += ccd_one[k];
-		}
+		  ccd_all = field_on_ccd(z0,locations,field_one,cam,NSCAT,ccd_all);
 	  }
 
 	  printf("%s\n","the program is finished");
@@ -411,7 +408,7 @@ int main(int argc, char **argv) {
 	    dims[0]=cam.cam_sx;
 	    dims[1]=cam.cam_sy;
 	    dataspace = H5Screate_simple(2,dims,NULL);
-	    file = H5Fcreate("out_2.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+	    file = H5Fcreate("out_4.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	    dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
 	    double *tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
@@ -494,7 +491,6 @@ int main(int argc, char **argv) {
 	    status = H5Fclose(file);
 
 	    free(tmp);
-	    free(ccd_one);
 	    free(ccd_all);
 	    free(scatts);
 	    free(locations);
