@@ -306,9 +306,9 @@ int main(int argc, char **argv) {
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
-	  int NSCAT = 64; /*the scatterer number*/
-	  int NSA = 50000*50; /* the simulation iteration for the angle for each scatter*/
-	  camera_t cam = {0.20,0.20,128,128}; /*initialize the cam struct*/
+	  int NSCAT = 65; /*the scatterer number*/
+	  int NSA = 50000*10; /* the simulation iteration for the angle for each scatter*/
+	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
 	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
 	  assert(field!=NULL);
@@ -320,6 +320,11 @@ int main(int argc, char **argv) {
 	  assert(locations!=NULL);
 	/*free path array*/
 	  double *free_path = malloc(NSA*NSCAT*sizeof(double));
+
+	/* the radiation counting for NSCATS */
+	  int *visting_array = malloc(NSCAT*sizeof(int));
+	  bzero(visting_array,NSCAT*sizeof(int));
+
 
 	  complex double *ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
@@ -371,8 +376,23 @@ int main(int argc, char **argv) {
 		  for (j = 0; j < NSCAT; ++j) {
 			matrix = Matrix[j];
 			field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),matrix);
+			++visting_array[field[i][j].scatterer_index];
 		}
 	  }
+
+	    /**
+	     * Write the tmp array as a way to do the cross-correlation function.
+	     */
+	    FILE *fp_counting = fopen("visting_counter_2.txt","w");
+
+	    if (fp_counting == 0) {
+	  	fprintf(stderr, "failed to open the file");
+	  	exit(1);
+	    }
+	    for (i = 0; i < NSCAT; ++i) {
+	  	fprintf(fp_counting,"%d\n",visting_array[i]);
+	    }
+	    fclose(fp_counting);
 
 	  /* For the perpendicular component of the wave_vector*/
 	  double k_per_abs = 2.00329*2.0*M_PI/lambda_light*cos(32.0*M_PI/180.0);/*wave vector on LAH79 with angle of theta_sp
@@ -408,7 +428,7 @@ int main(int argc, char **argv) {
 	    dims[0]=cam.cam_sx;
 	    dims[1]=cam.cam_sy;
 	    dataspace = H5Screate_simple(2,dims,NULL);
-	    file = H5Fcreate("out_4.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+	    file = H5Fcreate("out_2_512_2.h5",H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	    dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
 	    double *tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
