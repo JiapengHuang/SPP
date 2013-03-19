@@ -80,5 +80,30 @@ int main(int argc, char **argv){
 	fprintf(fp,"%-12.12f %-12.12f %-12.12f\n",scatt[i].x,scatt[i].y,scatt[i].z);
   }
   fclose(fp);
+
+  FILE *fp_x = fopen("Scatterers_x.txt","w");
+
+  if (fp_x == 0) {
+	fprintf(stderr, "failed to open the file");
+	exit(1);
+  }
+
+  for (i = 0; i < 64; ++i) {
+	fprintf(fp_x,"%-12.12f\n",scatt[i].x);
+  }
+  fclose(fp_x);
+
+  FILE *fp_y = fopen("Scatterers_y.txt","w");
+
+  if (fp_y == 0) {
+	fprintf(stderr, "failed to open the file");
+	exit(1);
+  }
+
+  for (i = 0; i < 64; ++i) {
+	fprintf(fp_y,"%-12.12f\n",scatt[i].y);
+  }
+  fclose(fp_y);
+
   return 0;
 }
