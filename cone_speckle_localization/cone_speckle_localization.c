@@ -255,117 +255,156 @@ __inline field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int
 		// TODO: the coefficient should be the only first scatter here.
 		// it is not correct here
 	}
+	free_path[free_path_index] = pathlength;
+	radi_angle = angle_between_vector(k_in, k_out);
+	coefficient = spp_radiation_co(k_spp_abs,radi_angle);
+	field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
+	field.k = k_out;
 	field.scatterer_index = curr_scatterer_index;
 	return field;
 }
 
+/**
+ * This is the method for the free space transform  for one set of all the scatterers.
+ */
+__inline scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig,int NSCAT, scatterer_t *locations){
+	int i;
+	for (i = 0; i < NSCAT; ++i) {
+		locations[i].x = scatts_orig[field[i].scatterer_index].x + field[i].k.kx/field[i].k.kz*z0;
+		locations[i].y = scatts_orig[field[i].scatterer_index].y + field[i].k.ky/field[i].k.kz*z0;
+		locations[i].z = scatts_orig[field[i].scatterer_index].z + z0;
+	}
+	return locations;
+}
+
+/**
+ * This is the method to create the field distribution on the ccd chip from a certain distance for the orignal
+ * scattering plane. Here we put the ccd chip parallize the x-y plane and has a distance from the orignal point
+ * of z0.
+ */
+__inline complex double* field_on_ccd(double distance, scatterer_t *locations, field_t *field, camera_t cam,int NSCAT, complex double *ccd){
+	  double dx = cam.cam_lx/(cam.cam_sx-1);
+	  double dy = cam.cam_ly/(cam.cam_sy-1);
+	  int cam_sx = cam.cam_sx;
+	  int cam_sy = cam.cam_sy;
+	  assert(ccd!=NULL);
+	  int i,pixel_index;
+	  int size = NSCAT;
+	  for (i = 0; i < size; ++i) {
+		  // TODO: double check
+		  pixel_index = ((int)((locations[i].x+cam.cam_lx/2)/dx)*cam_sy) + (int)((locations[i].y+cam.cam_ly/2)/dy);
+		  ccd[pixel_index] += field[i].field_abs;
+	}
+	  return ccd;
+}
+
+
 int main(int argc, char **argv) {
 
 	/* program variables */
-	  unsigned int i,j,k,m,n; /* variables to iterate over */
+	  unsigned int i,j,k,m; /* variables to iterate over */
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 65; /*the scatterer number*/
-	  int NSA = 500;//00*10; /* the simulation iteration for the angle for each scatter*/
-	  int var = 10; // variation of single scatterer positions;
-
+	  int NSA = 500; /* the simulation iteration for the angle for each scatter*/
+	  int var = 10; /*number of sets of the positions*/
+	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
+	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
-	  assert(field!=NULL);
-	  /*free path array*/
-	  double *free_path = malloc(NSA*NSCAT*sizeof(double));
-	  /* the radiation counting for NSCATS */
-	  int *visting_array = malloc(NSCAT*sizeof(int));
-	  bzero(visting_array,NSCAT*sizeof(int));
-	  index_bounds (*Matrix)[NSCAT-1] = malloc((sizeof *Matrix)*NSCAT);
-
+	  //assert(field!=NULL);
 	/* seed the scatterers */
 	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(scatts!=NULL);
+	/* the locations */
+	  scatterer_t *locations = malloc(NSCAT*sizeof(scatterer_t));
+	  assert(locations!=NULL);
+	/*free path array*/
+	  double *free_path = malloc(NSA*NSCAT*sizeof(double));
 
-	  FILE *fp_counting;
+	/* the radiation counting for NSCATS */
+	  int *visting_array = malloc(NSCAT*sizeof(int));
+	  bzero(visting_array,NSCAT*sizeof(int));
 
 	/* To read the scatterers positions from the file into the scatterer array*/
-	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
+	  FILE *fp = fopen("Scatterers.txt","r");
 
 	  if (fp == 0) {
 		fprintf(stderr, "failed to open the file");
 		exit(1);
 	  }
 
-	  for (i = 0; i < NSCAT-1; ++i) {
-		  fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
-		  fscanf(fp,"\n");
+	  for (i = 0; i < NSCAT; ++i) {
+		fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
+		fscanf(fp,"\n");
+		//printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
 	  }
-
 	  fclose(fp);
 
-
-	  for (k = 0; k < var; ++k) {
-		  index_bounds *matrix;
-
-		  scatts[NSCAT].x = k*scanxy/var-scanxy/2;
-		  scatts[NSCAT].y = -scanxy/2;
-		  scatts[NSCAT].z = (1000e-9)/2;
-		  for (i = 0; i < NSCAT; ++i) {
-			  matrix = Matrix[i];
-			  conduc_matrix(NSCAT, scatts, i, matrix);
-				for (n = 0; n < NSCAT-1; ++n) {
-					printf("%12.12f   %d     ",Matrix[i][k].upper_bound,Matrix[i][k].index);
-				}
-				printf("%d\n",i);
-		  }
-		  printf("%s\n","conductive matrix finished");
-		  //scatts[500].x = 5.0e-6;
-		  //scatts[500].y = 4.0e-6;
-		  //scatts[500].z = 0.2e-6;
-
-		  /* initialize the random number generator */
-		  int rseed = (int)time(NULL);
-		  const gsl_rng_type *T;
-		  gsl_rng *r;
-		  gsl_rng_env_setup();
-		  T = gsl_rng_default;
-		  r = gsl_rng_alloc(T);
-		  gsl_rng_set(r,rseed);
+	  for(m = 0; m < var;++m)
+	  {
 
 
-		  /**
-		   * Write the tmp array as a way to do the cross-correlation function.
-		   */
-		  /*
-		   *Create the path length array
-		   */
-		  for(i=0;i<NSA;++i){
-			  for (j = 0; j < NSCAT; ++j) {
-				  matrix = Matrix[j];
-				  field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),matrix);
-				  ++visting_array[field[i][j].scatterer_index];
-				}
-		  }
-		  printf("%d  %s",k,"th loop finished.\n");
 
-	  	  char file_name[30];
-		  sprintf(file_name, "%d_%d",NSCAT,k);
-
-		  fp_counting = fopen("test","w");
-		  if (fp_counting == 0) {
-			  fprintf(stderr, "failed to open the file");
-			  	  exit(1);
-			 	 }
-		  for (m = 0; m < NSCAT; ++m) {
-			  fprintf(fp_counting,"%d\n",visting_array[m]);
-		  }
-
-
+	  index_bounds (*Matrix)[NSCAT-1] = malloc((sizeof *Matrix)*NSCAT);
+	  index_bounds *matrix;
+	  for (i = 0; i < NSCAT; ++i) {
+		  matrix = Matrix[i];
+		  conduc_matrix(NSCAT, scatts, i, matrix);
+		for (k = 0; k < NSCAT-1; ++k) {
+			printf("%12.12f   %d     ",Matrix[i][k].upper_bound,Matrix[i][k].index);
+		}
+		printf("%d\n",i);
 	  }
-  	  free(Matrix);
-	  free(visting_array);
-	  free(field);
-	  free(free_path);
-	  fclose(fp_counting);
-	  free(scatts);
-	  printf("%s\n","finished");
+
+	  printf("%s\n","conductive matrix finished");
+	  //scatts[500].x = 5.0e-6;
+	  //scatts[500].y = 4.0e-6;
+	  //scatts[500].z = 0.2e-6;
+
+	/* initialize the random number generator */
+	  int rseed = (int)time(NULL);
+	  const gsl_rng_type *T;
+	  gsl_rng *r;
+	  gsl_rng_env_setup();
+	  T = gsl_rng_default;
+	  r = gsl_rng_alloc(T);
+	  gsl_rng_set(r,rseed);
+
+	/*
+	 *Create the path length array
+	 */
+	  for(i=0;i<NSA;++i){
+		  for (j = 0; j < NSCAT; ++j) {
+			matrix = Matrix[j];
+			field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),matrix);
+			++visting_array[field[i][j].scatterer_index];
+		}
+	  }
+
+	    /**
+	     * Write the tmp array as a way to do the cross-correlation function.
+	     */
+
+	  char *file_names = malloc(10*sizeof(char));
+	  sprintf(file_names,"visting_counter_%d _ %d",NSCAT,m);
+	    FILE *fp_counting = fopen(file_names,"w");
+
+	    if (fp_counting == 0) {
+	  	fprintf(stderr, "failed to open the file");
+	  	exit(1);
+	    }
+	    for (i = 0; i < NSCAT; ++i) {
+	  	fprintf(fp_counting,"%d\n",visting_array[i]);
+	    }
+	    fclose(fp_counting);
+	    free(Matrix);
+	    free(file_names);
+	  }
+	    free(scatts);
+	    free(locations);
+	    printf("%s","finished");
+
 	  return 0;
 }
 

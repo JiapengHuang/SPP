@@ -307,7 +307,7 @@ int main(int argc, char **argv) {
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 65; /*the scatterer number*/
-	  int NSA = 50000*10; /* the simulation iteration for the angle for each scatter*/
+	  int NSA = 500; /* the simulation iteration for the angle for each scatter*/
 	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
 	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
@@ -330,7 +330,7 @@ int main(int argc, char **argv) {
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
 
 	/* To read the scatterers positions from the file into the scatterer array*/
-	  FILE *fp = fopen("/home/jiapeng/Documents/Master thesis with Dr.Frank Vollmer/codes/random_scatterers_creater/Scatterers.txt","r");
+	  FILE *fp = fopen("Scatterers.txt","r");
 
 	  if (fp == 0) {
 		fprintf(stderr, "failed to open the file");
