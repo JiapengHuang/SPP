@@ -164,7 +164,7 @@ __inline int next_scatter_index(int current_index,int NSCAT, gsl_rng *r, index_b
 	double random_probability = 0.0;
 	random_probability = random_double_range(r, 0.0, 1.0);
 	for (i = 0; i < NSCAT-1; ++i) {
-		if (random_probability<matrix[i].upper_bound && random_probability > matrix[i].lower_bound) {
+		if (random_probability<=matrix[i].upper_bound && random_probability > matrix[i].lower_bound) {
 			next_scatter_index = matrix[i].index;
 			break;
 		}
@@ -180,11 +180,12 @@ __inline int conduc_matrix(int NSCAT,scatterer_t *scatts,int scatt_index, index_
 	double coeff[NSCAT-1];
 	int i,j;
 	double pathlength, coeff_sum;
+	coeff_sum = 0.0;
 	for (i = 0; i < NSCAT; ++i) {
 		if (i!=scatt_index) {
 			pathlength = distance_two_scatters(scatts[i],scatts[scatt_index]);
 			pathlength *= 1.0e+6;
-			coeff[i] = 1/(pathlength*pathlength);
+			coeff[i] = 1.0/(pathlength*pathlength);
 			coeff_sum += coeff[i];
 		}
 	}
@@ -302,17 +303,19 @@ __inline complex double* field_on_ccd(double distance, scatterer_t *locations, f
 int main(int argc, char **argv) {
 
 	/* program variables */
-	  unsigned int i,j,k,m; /* variables to iterate over */
+	  unsigned int i,j,k,m,m_x,m_y; /* variables to iterate over */
 	  double x,y,z;
 	  double scanxy = 15e-6; /* the boundary of the region */
 	  double lambda_light = 632.8e-9; /* wavelength of light */
 	  int NSCAT = 65; /*the scatterer number*/
-	  int NSA = 500; /* the simulation iteration for the angle for each scatter*/
-	  int var = 10; /*number of sets of the positions*/
+	  int NSA = 50000; /* the simulation iteration for the angle for each scatter*/
+	  int var_x = 10;
+	  int var_y = 10;
+	  /*number of sets of the positions*/
 	  camera_t cam = {0.20,0.20,512,512}; /*initialize the cam struct*/
 	  double z0 = 0.13; /* the camera distance from the orginal plane*/
 	  field_t(*field)[NSCAT] = malloc((sizeof *field)*NSA);
-	  //assert(field!=NULL);
+	  assert(field!=NULL);
 	/* seed the scatterers */
 	  scatterer_t *scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  assert(scatts!=NULL);
@@ -334,30 +337,64 @@ int main(int argc, char **argv) {
 		exit(1);
 	  }
 
-	  for (i = 0; i < NSCAT; ++i) {
+	  for (i = 0; i < NSCAT-1; ++i) {
 		fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
 		fscanf(fp,"\n");
 		//printf("%12.12f %12.12f %12.12f\n",scatts[i].x,scatts[i].y,scatts[i].z);
 	  }
 	  fclose(fp);
 
-	  for(m = 0; m < var;++m)
-	  {
+	  FILE *fp_counting = fopen("visting_counter_moving.txt","w");
 
+	  if (fp_counting == 0) {
+		  fprintf(stderr, "failed to open the file");
+		  exit(1);
+	  }
 
+	  FILE *fp_x = fopen("Scatterers_x_moving.txt","w");
+
+	  if (fp_x == 0) {
+		fprintf(stderr, "failed to open the file");
+		exit(1);
+	  }
+
+	  FILE *fp_y = fopen("Scatterers_y_moving.txt","w");
+
+	  if (fp_y == 0) {
+		fprintf(stderr, "failed to open the file");
+		exit(1);
+	  }
 
 	  index_bounds (*Matrix)[NSCAT-1] = malloc((sizeof *Matrix)*NSCAT);
 	  index_bounds *matrix;
-	  for (i = 0; i < NSCAT; ++i) {
-		  matrix = Matrix[i];
-		  conduc_matrix(NSCAT, scatts, i, matrix);
-		for (k = 0; k < NSCAT-1; ++k) {
-			printf("%12.12f   %d     ",Matrix[i][k].upper_bound,Matrix[i][k].index);
-		}
-		printf("%d\n",i);
-	  }
 
-	  printf("%s\n","conductive matrix finished");
+	  for(m = 0; m < var_x*var_y;++m){
+
+		  bzero(visting_array,NSCAT*sizeof(int));
+		  m_x = m/var_x;
+		  m_y = m%var_y;
+		  scatts[NSCAT-1].x = m_x*scanxy/var_x - scanxy/2.0;
+		  scatts[NSCAT-1].y = m_y*scanxy/var_y - scanxy/2.0;
+		  scatts[NSCAT-1].z = 500e-9;
+
+		  for (i = 0; i < NSCAT; ++i) {
+			fprintf(fp_x,"%-12.12f ",scatts[i].x);
+		  }
+		  fprintf(fp_x,"\n");
+		  for (i = 0; i < NSCAT; ++i) {
+			fprintf(fp_y,"%-12.12f ",scatts[i].y);
+		  }
+		  fprintf(fp_y,"\n");
+		  for (i = 0; i < NSCAT; ++i) {
+			  matrix = Matrix[i];
+			  conduc_matrix(NSCAT, scatts, i, matrix);
+			  for (k = 0; k < NSCAT-1; ++k) {
+				  printf("%12.12f   %d     %12.12f ||  ",Matrix[i][k].lower_bound,Matrix[i][k].index,Matrix[i][k].upper_bound);
+			  }
+			  printf("%d\n",i);
+		  }
+
+		  printf("%s\n","conductive matrix finished");
 	  //scatts[500].x = 5.0e-6;
 	  //scatts[500].y = 4.0e-6;
 	  //scatts[500].z = 0.2e-6;
@@ -386,24 +423,21 @@ int main(int argc, char **argv) {
 	     * Write the tmp array as a way to do the cross-correlation function.
 	     */
 
-	  char *file_names = malloc(10*sizeof(char));
-	  sprintf(file_names,"visting_counter_%d _ %d",NSCAT,m);
-	    FILE *fp_counting = fopen(file_names,"w");
+	  //char *file_names = malloc(10*sizeof(char));
+	  //sprintf(file_names,"visting_counter_%d _ %d",NSCAT,m);
 
-	    if (fp_counting == 0) {
-	  	fprintf(stderr, "failed to open the file");
-	  	exit(1);
-	    }
-	    for (i = 0; i < NSCAT; ++i) {
-	  	fprintf(fp_counting,"%d\n",visting_array[i]);
-	    }
-	    fclose(fp_counting);
-	    free(Matrix);
-	    free(file_names);
+	  for (i = 0; i < NSCAT; ++i) {
+		  fprintf(fp_counting,"%d ",visting_array[i]);
+	    	}
+	  fprintf(fp_counting,"\n");
 	  }
-	    free(scatts);
-	    free(locations);
-	    printf("%s","finished");
+	  free(Matrix);
+	  fclose(fp_counting);
+	  fclose(fp_x);
+	  fclose(fp_y);
+	  free(scatts);
+	  free(locations);
+	  printf("%s","finished");
 
 	  return 0;
 }
