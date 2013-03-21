@@ -4,18 +4,15 @@ close all;
 hold off;
 NSCAT = 65;
 VAR = 100;
-f_location_x = fopen('Scatterers_x_moving.txt');
-location_x = fscanf(f_location_x, '%f');
-f_location_y = fopen('Scatterers_y_moving.txt');
-location_y = fscanf(f_location_y, '%f');
+location_x = load('Scatterers_x_moving.txt');
+location_y = load('Scatterers_y_moving.txt');
 
 location_x = reshape(location_x,NSCAT,VAR);
 size(location_x);
 location_y = reshape(location_y,NSCAT,VAR);
 size(location_y);
 
-f_counting_65 = fopen('visting_counter_moving.txt');
-counting_65 = fscanf(f_counting_65,'%d');
+counting_65 = load('visting_counter_moving.txt');
 
 counting_65 = reshape(counting_65,NSCAT,VAR);
 size(counting_65);
