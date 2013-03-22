@@ -33,6 +33,13 @@ for j = 1:VAR
     scatter(location_x(:,j),location_y(:,j), s,c,'fill');
     title('**');
     A(:,j) = getframe;
+    im = frame2im(A(:,j));
+    [imind,cm] = rgb2ind(im,256);
+    if j == 1;
+    imwrite(imind,cm,'localizations','gif', 'Loopcount',inf);
+    else
+    imwrite(imind,cm,'localizations','gif','WriteMode','append');
+    end
 end
 %movie(A,10,3);
 movie2avi(A,'localization.avi','compression','None');

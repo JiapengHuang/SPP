@@ -185,7 +185,7 @@ __inline int conduc_matrix(int NSCAT,scatterer_t *scatts,int scatt_index, index_
 		if (i!=scatt_index) {
 			pathlength = distance_two_scatters(scatts[i],scatts[scatt_index]);
 			pathlength *= 1.0e+6;
-			coeff[i] = 1.0/(pathlength*pathlength);
+			coeff[i] = 1.0/(pathlength);
 			coeff_sum += coeff[i];
 		}
 	}
