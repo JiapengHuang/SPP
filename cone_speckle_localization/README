@@ -1,0 +1,12 @@
+This is a makefile C code which simulates one moving scatterer in a fixed scatterers plan.
+
+* In order to run programme a basic Scatterers.txt file is needed.This Scatterers.txt file is produced by another C code -- random_scatterers_creater, which will give us a position matrix of a fixed number of scatterers' positions.
+
+* As out-put, several files will be created.
+	** 'Scatterers_x_moving.txt' and 'Scatterers_y_moving.txt',which contain 	the sets of positions of the scatterers.
+
+	** 'visting_counter_moving.txt', which contains the sets of the visting 	counting for each scatterer.
+
+Here we define that one "set" means one position of the moving scatterer.If the moving scatterer has 100 positions, then the 'Scatterer_*_moving.txt' and 'visting_counter_moving.txt' should also have 100 corresponing sets.
+
+* Using the matlab code 'one_moving_scatterer.m', it is possible to create a .gif picture to see the localization in multiple scattering with one moving scatterer.
