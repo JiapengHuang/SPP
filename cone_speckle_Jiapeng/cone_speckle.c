@@ -314,8 +314,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  int LOW_NI = 500;                       /* lower iteration times for each scatterer*/
-	  int UP_NI = 50;                        /*Upper iteration times for each scatterer*/
+	  int LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
+	  int UP_NI = 500;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 	  double z0 = 0.13;                       /* the camera distance from the orginal plane*/
@@ -399,8 +399,6 @@ int main(int argc, char **argv) {
 			  }
 		  }
 
-		  log_info("Field generation finished.");
-
 		  for(i=0;i<LOW_NI;++i) {
 			  locations = fst_transfer(field[i],z0,scatts,NSCAT, locations);
 			  field_on_ccd(z0,locations,field[i],cam,NSCAT,ccd_all);
@@ -420,7 +418,6 @@ int main(int argc, char **argv) {
 		}
 		fclose(fp_counting);
 
-
 		double *tmp = NULL;
 		tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
 		check_mem(tmp);
@@ -432,7 +429,6 @@ int main(int argc, char **argv) {
 			if(tmp[i]>max){ max=tmp[i]; }
 
 		}
-		//  printf("%g\n",max);
 		/* then dividing by max */
 		for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
 			tmp[i]/=max;
@@ -443,7 +439,7 @@ int main(int argc, char **argv) {
 		 */
 		bzero(filename,FILENAME_MAX*sizeof(char));
 		sprintf(filename,"%s","tmp_500.txt");
-	  FILE *fp_tmp = fopen(filename,"w");
+		FILE *fp_tmp = fopen(filename,"w");
 		check(fp_tmp, "Failed to open %s for writing.", filename); 
 
 		int size_none_zero = 0;
@@ -474,12 +470,12 @@ int main(int argc, char **argv) {
 	    /**
 	     * Write the free path array as a way to do the cross-correlation function.
 	     */
-			bzero(filename,FILENAME_MAX*sizeof(char));
-			sprintf(filename,"%s","free_path.txt");
+		bzero(filename,FILENAME_MAX*sizeof(char));
+		sprintf(filename,"%s","free_path.txt");
 	    FILE *fp_path = fopen("free_path.txt","w");
-			check(fp_path, "Failed to open %s for writing.", filename); 
+		check(fp_path, "Failed to open %s for writing.", filename);
 
-			log_info("Writing to %s.",filename);
+		log_info("Writing to %s.",filename);
 	    for (i = 0; i < LOW_NI*NSCAT; ++i) {
 				fprintf(fp_path,"%-12.12f\n",free_path[i]);
 	    }
