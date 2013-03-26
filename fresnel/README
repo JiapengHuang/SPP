@@ -1,0 +1,9 @@
+This directory contains files for looking at n layer system using the
+Fresnel relations.
+
+fftwiggles.m      fresnel reflection/scattering amplitude for different
+                  propagation distances as a function of a spatial
+									coordinate
+fresnelkspace.m   fresnel reflection/scattering amplitude as a fucnction of
+                  k or angle
+nlayerfresnel.m   solves the complex n layer Fresnel relations
