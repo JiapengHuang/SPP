@@ -114,10 +114,9 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 }
 /**
  *
- * This is the method to create a random wave vector for the SPP.
- * In this case, since the SPP are confined in the metal-dielectric interface. The wave vector are considered as
- * (kx,ky,0), the kz component should be zero
- * // TODO: is this true, kz = 0?
+ * This is the method to create a Gaussian distribution wave vector for the SPP.
+ * In this case, the wave vector of the spp is depended on the postion of scatterer. Here, we define the (0,0) in x-,y- axis is the centeral of the Gaussian beam. 
+ *
  */
 
 k_t random_spp_wavevector(double k_spp_abs, gsl_rng *r){
