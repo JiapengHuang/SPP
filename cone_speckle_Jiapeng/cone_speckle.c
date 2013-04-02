@@ -268,6 +268,29 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	field.scatterer_index = curr_scatterer_index;
 	return field;
 }
+/**
+ * This function create the phase shift between the scatterer to a position on the cone.
+ */
+complex double phase_scatt_to_cone(k_t k_out, double distance, scatterer_t scatt){
+	complex double phase = 1.0i;
+	double lambda_light = 632.8e-9; /* wavelength of light */
+	double k_light_abs = 2.0*M_PI/lambda_light;
+	double radi_angle = 0.0;
+	double shift = 0.0;
+	double tan_theta = tan(32.0*M_PI/180.0);
+	k_t k_in;
+	k_in.kx = 1.0;
+	k_in.ky = 0.0;
+	k_in.kz = 0.0;
+	radi_angle = angle_between_vector(k_in, k_out);
+	shift = sqrt((distance*tan_theta*cos(radi_angle) + scatt.x)*(distance*tan_theta*cos(radi_angle) + scatt.x)
+			+ (distance*tan_theta*sin(radi_angle) + scatt.y)*(distance*tan_theta*sin(radi_angle) + scatt.y)
+			+ (distance*distance));
+	phase = cexp(1.0i*shift*k_light_abs);
+	return phase;
+}
+
+
 
 /**
  * This is the method for the free space transform  for one set of all the scatterers.
@@ -278,6 +301,8 @@ scatterer_t *fst_transfer(field_t *field, double z0, scatterer_t *scatts_orig,in
 		locations[i].x = scatts_orig[field[i].scatterer_index].x + field[i].k.kx/field[i].k.kz*z0;
 		locations[i].y = scatts_orig[field[i].scatterer_index].y + field[i].k.ky/field[i].k.kz*z0;
 		locations[i].z = scatts_orig[field[i].scatterer_index].z + z0;
+		// Phase shift
+		field[i].field_abs *= phase_scatt_to_cone(field[i].k,z0,scatts_orig[field[i].scatterer_index]);
 	}
 	return locations;
 }
@@ -313,8 +338,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  int LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  int UP_NI = 500;                        /*Upper iteration times for each scatterer*/
+	  int LOW_NI = 50;                       /* lower iteration times for each scatterer*/
+	  int UP_NI = 50;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 	  double z0 = 0.13;                       /* the camera distance from the orginal plane*/
