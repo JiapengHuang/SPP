@@ -270,6 +270,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 }
 /**
  * This function create the phase shift between the scatterer to a position on the cone.
+ * The equation is based on the equation from Bert's thesis page.57.
  */
 complex double phase_scatt_to_cone(k_t k_out, double distance, scatterer_t scatt){
 	complex double phase = 1.0i;
