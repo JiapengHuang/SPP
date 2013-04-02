@@ -115,16 +115,18 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 /**
  *
  * This is the method to create a Gaussian distribution wave vector for the SPP.
- * In this case, the wave vector of the spp is depended on the postion of scatterer. Here, we define the (0,0) in x-,y- axis is the centeral of the Gaussian beam. 
+ * In this case, the wave vector of the spp is depended on the postion of scatterer. Here, we define the (0,0) in x-,y- axis is the centeral of the Gaussian beam with the vaule of k_spp_abs.
  *
  */
 
-k_t random_spp_wavevector(double k_spp_abs, gsl_rng *r){
+k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gsl_rng *r){
 	k_t k;
+	double k_abs = 0.0;
+	k_abs = k_spp_abs + (sqrt(scatt.x*scatt.x + scatt.y*scatt.y)/distance)*k_spp_abs/sin(32.0*M_PI/180.0);
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = 0.0;
-	k.kx = k_spp_abs * sin(theta);
-	k.ky = k_spp_abs * cos(theta);
+	k.kx = k_abs * sin(theta);
+	k.ky = k_abs * cos(theta);
 	return k;
 }
 
@@ -241,7 +243,8 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	k_in.kx = 1.0;
 	k_in.ky = 0.0;
 	k_in.kz = 0.0;
-	k_t k_out = random_spp_wavevector(k_spp_abs, r);
+	// TODO: what the distance should be take here, test just 600e-6
+	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,600e-6, r);
 	double coefficient = 1.0;
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
@@ -339,8 +342,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  int LOW_NI = 50;                       /* lower iteration times for each scatterer*/
-	  int UP_NI = 50;                        /*Upper iteration times for each scatterer*/
+	  int LOW_NI = 5000;                       /* lower iteration times for each scatterer*/
+	  int UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 	  double z0 = 0.13;                       /* the camera distance from the orginal plane*/
@@ -515,7 +518,7 @@ int main(int argc, char **argv) {
 		dims[1]=cam.cam_sy;
 		dataspace = H5Screate_simple(2,dims,NULL);
 		bzero(filename,FILENAME_MAX*sizeof(char));
-		sprintf(filename,"%s","out.h5");
+		sprintf(filename,"%s","out2.h5");
 		file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 		dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 

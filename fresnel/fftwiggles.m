@@ -40,6 +40,7 @@ function [x,E_spec,E_cone,E_gauss] = fftwiggles(z)
 	% k space
 	k = linspace(k0*sqrt(epsilon1)*sin(theta-spread),k0*sqrt(epsilon1)*sin(theta+spread),N);
 	
+    plot(k,gausskx(k));
 	% x and y are the actual output
 	x = [0:N-1].*2.*pi./range(k);
 	E_spec = ifft(1/sqrt(2*pi).*nlayerfresnel(k0,k,epsilon,d).*gausskx(k).*exp(1.0i*sqrt(k0.*k0.*epsilon1-k.*k).*z)).*abs(k(1)-k(2)).*N;
