@@ -97,14 +97,14 @@ __inline double distance_two_scatters(scatterer_t scatt_a,scatterer_t scatt_b){
 /**
  * Gaussian Beam creator
  */
-int gaussian_profile_creator(scatterer_t* scatts,double waist,int num_iter,int NSCAT,int *gaussian_matrix){
+int gaussian_profile_creator(scatterer_t* scatts,double waist,unsigned long num_iter,int NSCAT,unsigned long *gaussian_matrix){
 	double coeff[NSCAT];
-	int i,j;
-	double pathlength, coeff_sum;
-	int error;
+	int i;
+	double dis, coeff_sum;
+	long error = 0;
 	for (i = 0; i < NSCAT; ++i) {
-			pathlength = sqrt((scatts[i].x*scatts[i].x)+(scatts[i].y*scatts[i].y));
-			coeff[i] = exp(-2.0*pathlength*pathlength/(waist*waist));
+			dis = sqrt((scatts[i].x*scatts[i].x)+(scatts[i].y*scatts[i].y));
+			coeff[i] = exp(-2.0*dis*dis/(waist*waist));
 			coeff_sum += coeff[i];
 	}
 	for (i = 0; i < NSCAT; ++i) {
@@ -117,6 +117,7 @@ int gaussian_profile_creator(scatterer_t* scatts,double waist,int num_iter,int N
 	}
 	error -= num_iter;
 	gaussian_matrix[0] -= error;
+
 	return 0;
 }
 
@@ -327,7 +328,7 @@ complex double phase_scatt_to_cone(k_t k_out, double distance, scatterer_t scatt
 /**
  * This is the method for the free space transform  for one set of one scatterers.
  */
-scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatts_orig,int NSCAT){
+scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatts_orig){
 	scatterer_t location;
 	location.x = scatts_orig.x + field.k.kx/field.k.kz*z0;
 	location.y = scatts_orig.y + field.k.ky/field.k.kz*z0;
@@ -342,19 +343,16 @@ scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatts_orig,int N
  * scattering plane. Here we put the ccd chip parallize the x-y plane and has a distance from the orignal point
  * of z0.
  */
-int field_on_ccd(double distance, scatterer_t *locations, field_t *field, camera_t cam,int NSCAT, complex double *ccd){
+int field_on_ccd(double distance, scatterer_t location, field_t field, camera_t cam, complex double *ccd){
 	  double dx = cam.cam_lx/(cam.cam_sx-1);
 	  double dy = cam.cam_ly/(cam.cam_sy-1);
 	  //int cam_sx = cam.cam_sx;  /* unused */
 	  int cam_sy = cam.cam_sy;
 		//check_mem(ccd);
-	  int i,pixel_index;
-	  for (i = 0; i < NSCAT; ++i) {
-		  // TODO: double check
-		  pixel_index =   (int)((locations[i].x+cam.cam_lx/2)/dx)*cam_sy 
-				            + (int)((locations[i].y+cam.cam_ly/2)/dy);
-		  ccd[pixel_index] += field[i].field_abs;
-	}
+	  int pixel_index;
+		  pixel_index =   (int)((location.x+cam.cam_lx/2)/dx)*cam_sy
+				            + (int)((location.y+cam.cam_ly/2)/dy);
+		  ccd[pixel_index] += field.field_abs;
 	  return 0;
 }
 
@@ -363,34 +361,26 @@ int main(int argc, char **argv) {
 
 	/* program variables */
 	  unsigned int i,j,m;                       /* variables to iterate over */
-	  int NSCAT = 65;                         /* the scatterer number */
+	  int NSCAT = 500;                         /* the scatterer number */
 	  /*
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  int LOW_NI = 500;                       /* lower iteration times for each scatterer*/
-	  int UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 	  double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-	  double waist = 5.0e-6;
+	  double waist = 20.0e-6;                   /*minimun 5.0e-6*/
 
-	  field_t **field = NULL;
-	  field = malloc(LOW_NI*sizeof(field_t*));
-	  check_mem(field);
-	  for(i=0;i<LOW_NI;++i){
-		  field[i] = (field_t*)malloc(NSCAT*sizeof(field_t));
-		  check_mem(field[i]);
-	  }
+	  field_t field;
 
 	/* seed the scatterers */
 	  scatterer_t *scatts = NULL;
 	  scatts = malloc(NSCAT*sizeof(scatterer_t));
 	  check_mem(scatts);
 	/* the locations */
-	  scatterer_t *locations = NULL;
-	  locations = malloc(NSCAT*sizeof(scatterer_t));
-	  check_mem(locations);
+	  scatterer_t location;
 	/*free path array*/
 	  double *free_path = NULL;
 	  free_path = malloc(LOW_NI*NSCAT*sizeof(double));
@@ -404,7 +394,7 @@ int main(int argc, char **argv) {
 	  ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
 
-	  int *gaussian_beam = malloc(NSCAT*sizeof(int));
+	  unsigned long *gaussian_beam = malloc(NSCAT*sizeof(unsigned long));
 	/* To read the scatterers positions from the file into the scatterer array*/
 	  char filename[FILENAME_MAX];
 	  bzero(filename,FILENAME_MAX*sizeof(char));
@@ -438,32 +428,25 @@ int main(int argc, char **argv) {
 	  r = gsl_rng_alloc(T);
 	  gsl_rng_set(r,rseed);
 
-	  int gaussian_sum;
+	  int gaussian_sum = 0;
+	  j = 0;
 	  gaussian_profile_creator(scatts,waist, UP_NI*LOW_NI,NSCAT,gaussian_beam);
-	  for (m = 0; m < UP_NI*LOW_NI; ++m) {
-
-	}
-
-
-
 	  for (m = 0; m < UP_NI; ++m) {
-		  for(i=0;i<LOW_NI;++i){
-			  if((m+1)*(i+1) > gaussian_sum){
-				  field[i][j] = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),Matrix[j]);
-				  ++visiting_array[field[i][j].scatterer_index];
-				  j++;
-				  gaussian_sum;
-			  } else {
-				 gaussian_sum += gaussian_beam[]
-			  }
-			  }
-		  }
-
-		  for(i=0;i<LOW_NI;++i) {
-			  locations = fst_transfer(field[i],z0,scatts,NSCAT, locations);
-			  field_on_ccd(z0,locations,field[i],cam,NSCAT,ccd_all);
+		  for (i = 0; i < LOW_NI; ++i) {
+			  if (gaussian_sum < gaussian_beam[j]) {
+				++gaussian_sum;
+				field = single_field_spp(j, scatts, NSCAT, r, free_path,(i*NSCAT + j),Matrix[j]);
+				++visiting_array[field.scatterer_index];
+				location = fst_transfer(field,z0,scatts[field.scatterer_index]);
+				field_on_ccd(z0,location,field,cam,ccd_all);
+			} else {
+				++j;
+				gaussian_sum = 0;
+			}
 		  }
 	  }
+	  log_info("Field generated.");
+
 		/**
 		 * Write the tmp array as a way to do the cross-correlation function.
 		 */
@@ -548,7 +531,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out2.h5");
+	  sprintf(filename,"%s","out3.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
@@ -577,7 +560,6 @@ int main(int argc, char **argv) {
 	  status = H5Fclose(file);
 	  free(tmp);
 	  free(scatts);
-	  free(locations);
 	  free(free_path);
 	  free(visiting_array);
 	  free(ccd_all);
@@ -585,10 +567,6 @@ int main(int argc, char **argv) {
 		  free(Matrix[i]);
 	  }
 	  free(Matrix);
-	  for(i=0;i<LOW_NI;++i){
-		  free(field[i]);
-	  }
-	  free(field);
 
 	  log_info("Program finished.");
 
