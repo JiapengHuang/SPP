@@ -118,6 +118,11 @@ int gaussian_profile_creator(scatterer_t* scatts,double waist,unsigned long num_
 	error -= num_iter;
 	gaussian_matrix[0] -= error;
 
+	error = 0;
+	for (i = 0; i < NSCAT; ++i) {
+		error += gaussian_matrix[i];
+	}
+
 	return 0;
 }
 
@@ -247,7 +252,17 @@ int conduc_matrix(int NSCAT,scatterer_t *scatts,int scatt_index, index_bounds *m
 	return 0;
 }
 
-
+/**
+ * This is a function to create the phase different introduce by the different positions of the scatterers.
+ *
+ * This is very important to observe the Coherent Back Scattering.
+ *
+ */
+complex double phase_by_scatterer(scatterer_t scatt){
+	complex double phase = 0.0i;
+	// TODO:
+	return phase;
+}
 
 field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r, double *free_path, int free_path_index,index_bounds *matrix){
 	/*Constances definition
@@ -292,8 +307,10 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	}
 	free_path[free_path_index] = pathlength;
 	radi_angle = angle_between_vector(k_in, k_out);
-	coefficient = spp_radiation_co(k_spp_abs,radi_angle);
-	field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
+	// TODO: we first get the coefficient out
+	//coefficient = spp_radiation_co(k_spp_abs,radi_angle);
+	//field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
+	field.field_abs = cexp(1.0i*k_spp_abs*pathlength);
 	field.k.kx = k_out.kx;
 	field.k.ky = k_out.ky;
 	field.k.kz = k_per_abs;
@@ -371,7 +388,7 @@ int main(int argc, char **argv) {
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 	  double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-	  double waist = 20.0e-6;                   /*minimun 5.0e-6*/
+	  double waist = 5.0e-6;                   /*minimun 5.0e-6*/
 
 	  field_t field;
 
@@ -442,6 +459,7 @@ int main(int argc, char **argv) {
 			} else {
 				++j;
 				gaussian_sum = 0;
+				  log_info("%d",j);
 			}
 		  }
 	  }
@@ -531,7 +549,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out3.h5");
+	  sprintf(filename,"%s","out2.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
