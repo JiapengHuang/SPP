@@ -25,12 +25,13 @@
 #include <error.h>
 #include "zed-debug.h"   /* useful debug macros */
 
-int NSCAT = 300;                         /* the scatterer number */
+int NSCAT = 2000;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
 double waist = 10.0e-6;                   /*minimun 5.0e-6*/
+double waist_min = 10.0-6;
 double lambda_light = 632.8e-9; /* wavelength of light */
-double scanx_edge = -(15.0e-6)/2;
-double scany_edge = -(15.0e-6)/2;
+double scanx_edge = -(100.0e-6)/2;
+double scany_edge = -(100.0e-6)/2;
 
 /* return a random double */
 __inline double random_double_range(gsl_rng *r,double min, double max)
@@ -74,7 +75,6 @@ typedef struct{
 	double lower_bound;
 	double upper_bound;
 } index_bounds;
-
 
 /**
  * This is a method to get the field on a ccd pixel of a scatterer's scattering light. By calculating ray trace,
@@ -158,7 +158,7 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	k_abs = k_spp_abs + (sqrt(scatt.x*scatt.x + scatt.y*scatt.y)/distance)*k_spp_abs;
+	k_abs = sin(atan((scatt.x + (tan(32.0*M_PI/180.0)*distance))/distance))*2.00329*2.0*M_PI/lambda_light;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = 0.0;
 	k.kx = k_abs * sin(theta);
@@ -285,7 +285,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	// TODO: what the distance should be take here, test just 600e-6
-	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,300e-6, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,666.6e-6, r);
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -407,12 +407,13 @@ int main(int argc, char **argv) {
 		  conduc_matrix(NSCAT, scatts, i, Matrix[i]);
 		}
 
-	  for (i = 0; i < NSCAT; ++i) {
-		  for (m = 0; m < NSCAT-1; ++m) {
-			  printf("%12.12f   %d     ",Matrix[i][m].upper_bound,Matrix[i][m].index);
-		  }
-		  printf("%d\n",i);
-	  }
+
+	  //for (i = 0; i < NSCAT; ++i) {
+		 // for (m = 0; m < NSCAT-1; ++m) {
+			//  printf("%12.12f %d ",Matrix[i][m].upper_bound,Matrix[i][m].index);
+		//  }
+		//  printf("%d\n",i);
+	 // }
 
 	  log_info("Conductance matrix finished");
 
@@ -533,7 +534,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out3.h5");
+	  sprintf(filename,"%s","out_s2000_w10_50000_5000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 

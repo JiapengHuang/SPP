@@ -45,8 +45,8 @@ int main(int argc, char **argv){
 
   /* program variables */
   unsigned int i; /* variables to iterate over */
-  double scanxy = 15e-6; /* the boundary of the region */
-  int NSCAT = 512; /*the scatterer number*/
+  double scanxy = 100.0e-6; /* the boundary of the region */
+  int NSCAT = 2000; /*the scatterer number*/
 
   /* seed the scatterers */
   scatterer_t *scatt = malloc(NSCAT*sizeof(scatterer_t));
@@ -88,7 +88,7 @@ int main(int argc, char **argv){
 	exit(1);
   }
 
-  for (i = 0; i < 64; ++i) {
+  for (i = 0; i < NSCAT; ++i) {
 	fprintf(fp_x,"%-12.12f\n",scatt[i].x);
   }
   fclose(fp_x);
@@ -100,7 +100,7 @@ int main(int argc, char **argv){
 	exit(1);
   }
 
-  for (i = 0; i < 64; ++i) {
+  for (i = 0; i < NSCAT; ++i) {
 	fprintf(fp_y,"%-12.12f\n",scatt[i].y);
   }
   fclose(fp_y);
