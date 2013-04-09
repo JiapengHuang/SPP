@@ -158,7 +158,7 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	double cross_section = 0.2e-6;
+	double cross_section = 0.1e-6;
 	double cross_x = random_double_range(r,scatt.x - cross_section,scatt.x + cross_section);
 	k_abs = sin(atan((cross_x + (tan(32.0*M_PI/180.0)*distance))/distance))*2.00329*2.0*M_PI/lambda_light;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
@@ -339,7 +339,8 @@ int field_on_ccd(double distance, scatterer_t location,scatterer_t scatt, field_
 				            + (int)((location.y+cam.cam_ly/2)/dy);
 
 	  //phase caursed by the out light
-	  phase = (field.k.kx*scatt.x + field.k.ky*scatt.y + field.k.kz*scatt.z)/sqrt(field.k.kx*field.k.kx + field.k.ky*field.k.ky + field.k.kz*field.k.kz)*(2.0*M_PI/lambda_light);
+	  phase = (field.k.kx*scatt.x + field.k.ky*scatt.y + field.k.kz*scatt.z)
+			  /sqrt(field.k.kx*field.k.kx + field.k.ky*field.k.ky + field.k.kz*field.k.kz)*(2.0*M_PI/lambda_light);
 	  field.field_abs *= cexp(1.0i*phase);
 	  ccd[pixel_index] += field.field_abs;
 	  return 0;
@@ -355,8 +356,8 @@ int main(int argc, char **argv) {
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
 
-	  unsigned long LOW_NI = 5000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
