@@ -27,7 +27,7 @@
 
 int NSCAT = 2000;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 10.0e-6;                   /*minimun 5.0e-6*/
+double waist = 20.0e-6;                   /*minimun 5.0e-6*/
 double waist_min = 10.0-6;
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(100.0e-6)/2;
@@ -158,7 +158,9 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	k_abs = sin(atan((scatt.x + (tan(32.0*M_PI/180.0)*distance))/distance))*2.00329*2.0*M_PI/lambda_light;
+	double cross_section = 0.2e-6;
+	double cross_x = random_double_range(r,scatt.x - cross_section,scatt.x + cross_section);
+	k_abs = sin(atan((cross_x + (tan(32.0*M_PI/180.0)*distance))/distance))*2.00329*2.0*M_PI/lambda_light;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = 0.0;
 	k.kx = k_abs * sin(theta);
@@ -285,7 +287,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	// TODO: what the distance should be take here, test just 600e-6
-	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,666.6e-6, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,566.6e-6, r);
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -359,7 +361,7 @@ int main(int argc, char **argv) {
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
 	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
@@ -534,7 +536,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out_s2000_w10_50000_5000.h5");
+	  sprintf(filename,"%s","out_s2000_w20_50000_50000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
