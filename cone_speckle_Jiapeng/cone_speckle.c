@@ -27,7 +27,7 @@
 
 int NSCAT = 2000;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 15.0e-6;                   /*minimun 5.0e-6*/
+double waist = 40.0e-6;                   /*minimun 5.0e-6*/
 double waist_min = 10.0-6;
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(100.0e-6)/2;
@@ -270,7 +270,7 @@ double phase_by_scatterer(scatterer_t scatt){
 }
 
 field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix){
-	/*Constances definition
+	/* Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
 	 * */
@@ -300,8 +300,8 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 		scatt_next = scatts[next_scatterer_index];
 	}
 	// TODO: we first get the coefficient out
-	//coefficient = spp_radiation_co(k_spp_abs,radi_angle);
-	//field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
+	// coefficient = spp_radiation_co(k_spp_abs,radi_angle);
+	// field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
 	field.field_abs = cexp(1.0i*k_spp_abs*pathlength)*cexp(1.0i*phase_by_scatterer(scatts[first_scatt_index]));
 	field.k.kx = k_out.kx;
 	field.k.ky = k_out.ky;
@@ -357,7 +357,7 @@ int main(int argc, char **argv) {
 	   */
 
 	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long UP_NI = 10000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
@@ -404,7 +404,6 @@ int main(int argc, char **argv) {
 		  check_mem(Matrix[i]);
 		  conduc_matrix(NSCAT, scatts, i, Matrix[i]);
 		}
-
 
 	  //for (i = 0; i < NSCAT; ++i) {
 		 // for (m = 0; m < NSCAT-1; ++m) {
@@ -532,7 +531,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out_s2000_w15_50000_5000.h5");
+	  sprintf(filename,"%s","out_s2000_w40_50000_10000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
