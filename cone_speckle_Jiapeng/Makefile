@@ -4,7 +4,7 @@ TARGET = cone_speckle
 
 CC = gcc
 
-CFLAGS = -Wall -g
+CFLAGS = -g -O0
 
 INCLUDE_PATH = 
 LIBRARY_PATH = 

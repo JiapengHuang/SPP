@@ -27,7 +27,7 @@
 
 int NSCAT = 2000;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 10.0e-6;                   /*minimun 5.0e-6*/
+double waist = 15.0e-6;                   /*minimun 5.0e-6*/
 double waist_min = 10.0-6;
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(100.0e-6)/2;
@@ -176,12 +176,12 @@ k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gs
  */
 
 double spp_radiation_co(double k_spp_abs, double radiation_angle){
-	double coefficient;
+    double coefficient;
     double phi = 1400.0e-10;
     double delta_k_abs = 2.0*k_spp_abs*sin(radiation_angle/2.0);
     double exp_co = -1.0/4.0*phi*phi*(delta_k_abs)*(delta_k_abs);
     coefficient =(k_spp_abs*k_spp_abs*k_spp_abs*k_spp_abs)* cexp(exp_co);//*(1-cos(radiation_angle))*(1-cos(radiation_angle));
-	return coefficient;
+    return coefficient;
 }
 
 /**
@@ -335,15 +335,9 @@ int field_on_ccd(double distance, scatterer_t location,scatterer_t scatt, field_
 	  int pixel_index;
 	  pixel_index =   (int)((location.x+cam.cam_lx/2)/dx)*cam_sy
 				            + (int)((location.y+cam.cam_ly/2)/dy);
-	  k_t delta_k;
-	  delta_k.kx = scatt.x - scanx_edge;
-	  delta_k.ky = scatt.y - scany_edge;
-	  delta_k.kz = scatt.z;
 
-	  angle = angle_between_vector(delta_k,field.k);
 	  //phase caursed by the out light
-	  phase = cos(angle)*sqrt(scatt.x*scatt.x + scatt.y*scatt.y + scatt.z*scatt.z)
-			  *(sqrt(field.k.kx*field.k.kx + field.k.ky*field.k.ky + field.k.kz*field.k.kz));
+	  phase = (field.k.kx*scatt.x + field.k.ky*scatt.y + field.k.kz*scatt.z)/sqrt(field.k.kx*field.k.kx + field.k.ky*field.k.ky + field.k.kz*field.k.kz)*(2.0*M_PI/lambda_light);
 	  field.field_abs *= cexp(1.0i*phase);
 	  ccd[pixel_index] += field.field_abs;
 	  return 0;
@@ -358,8 +352,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long LOW_NI = 5000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
@@ -534,7 +528,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out_s2000_w10_50000_5000.h5");
+	  sprintf(filename,"%s","out_s2000_w15_50000_5000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
