@@ -155,12 +155,11 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
  *
  */
 
-k_t random_spp_wavevector(double k_spp_abs,scatterer_t scatt,double distance, gsl_rng *r){
+k_t random_spp_wavevector(double k_spp_abs,double* gaussian_k, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	double cross_section = 0.1e-6;
-	double cross_x = random_double_range(r,scatt.x - cross_section,scatt.x + cross_section);
-	k_abs = sin(atan((cross_x + (tan(32.0*M_PI/180.0)*distance))/distance))*2.00329*2.0*M_PI/lambda_light;
+	int randn = random_int(r,499);
+	k_abs = gaussian_k[randn];
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = 0.0;
 	k.kx = k_abs * sin(theta);
@@ -265,12 +264,12 @@ int conduc_matrix(int NSCAT,scatterer_t *scatts,int scatt_index, index_bounds *m
  */
 double phase_by_scatterer(scatterer_t scatt){
 	double phase = 0.0;
-	phase = 2.0*M_PI*(scatt.x - scanx_edge)/lambda_light*sin(32.0*M_PI/180.0);
+	phase = 2.0*M_PI*scatt.x/lambda_light*sin(32.0*M_PI/180.0);
 	return phase;
 }
 
-field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix){
-	/*Constances definition
+field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix, double*gaussian_k){
+	/* Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
 	 * */
@@ -287,7 +286,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	// TODO: what the distance should be take here, test just 600e-6
-	k_t k_out = random_spp_wavevector(k_spp_abs,scatt_cur,566.6e-6, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs,gaussian_k, r);
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -300,8 +299,8 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 		scatt_next = scatts[next_scatterer_index];
 	}
 	// TODO: we first get the coefficient out
-	//coefficient = spp_radiation_co(k_spp_abs,radi_angle);
-	//field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
+	// coefficient = spp_radiation_co(k_spp_abs,radi_angle);
+	// field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
 	field.field_abs = cexp(1.0i*k_spp_abs*pathlength)*cexp(1.0i*phase_by_scatterer(scatts[first_scatt_index]));
 	field.k.kx = k_out.kx;
 	field.k.ky = k_out.ky;
@@ -355,10 +354,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-
 	  unsigned long LOW_NI = 20000;                       /* lower iteration times for each scatterer*/
 	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/
-
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
 	  field_t field;
@@ -378,6 +375,11 @@ int main(int argc, char **argv) {
 	  visiting_array = malloc(NSCAT*sizeof(int));
 	  bzero(visiting_array,NSCAT*sizeof(int));
 
+	/*Gaussian profile in k space read from file */
+	  double *gaussian_k = NULL;
+	  gaussian_k = malloc(500*sizeof(double));
+	  bzero(gaussian_k,500*sizeof(double));
+
 	  complex double *ccd_all = NULL;
 	  ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
 	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
@@ -395,6 +397,19 @@ int main(int argc, char **argv) {
 		  fscanf(fp,"\n");
 	  }
 	  fclose(fp);
+	/* To read the gaussian profile for k-vector*/
+	  char filename2[FILENAME_MAX];
+	  bzero(filename2,FILENAME_MAX*sizeof(char));
+	  sprintf(filename2,"%s","Gaussian_k.txt");
+	  log_info("Reading from %s.",filename2);
+	  FILE *fp2 = fopen(filename2,"r");
+	  check(fp2, "Failed to open %s for reading.", filename2);
+	  for (i = 0; i < 500; ++i) {
+		  fscanf(fp2,"%lf",&gaussian_k[i]);
+		  fscanf(fp2,"\n");
+	  }
+	  fclose(fp2);
+
 
 	  index_bounds **Matrix = NULL;
 	  Matrix = (index_bounds**)malloc(NSCAT*sizeof(index_bounds*));
@@ -404,7 +419,6 @@ int main(int argc, char **argv) {
 		  check_mem(Matrix[i]);
 		  conduc_matrix(NSCAT, scatts, i, Matrix[i]);
 		}
-
 
 	  //for (i = 0; i < NSCAT; ++i) {
 		 // for (m = 0; m < NSCAT-1; ++m) {
@@ -432,7 +446,7 @@ int main(int argc, char **argv) {
 		  for (i = 0; i < LOW_NI; ++i) {
 			  if (gaussian_sum < gaussian_beam[j]) {
 				++gaussian_sum;
-				field = single_field_spp(j, scatts, NSCAT,r,Matrix[j]);
+				field = single_field_spp(j, scatts, NSCAT,r,Matrix[j],gaussian_k);
 				++visiting_array[field.scatterer_index];
 				location = fst_transfer(field,z0,scatts[field.scatterer_index]);
 				field_on_ccd(z0,location,scatts[field.scatterer_index],field,cam,ccd_all);
@@ -532,6 +546,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
+
 	  sprintf(filename,"%s","out_s2000_w10_20000_5000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
@@ -568,7 +583,7 @@ int main(int argc, char **argv) {
 		  free(Matrix[i]);
 	  }
 	  free(Matrix);
-
+	  free(gaussian_k);
 	  log_info("Program finished.");
 
 	  return 0;
