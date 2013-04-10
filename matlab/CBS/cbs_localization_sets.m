@@ -3,18 +3,19 @@ clear;
 close all;
 k = 9.9417e+06;
 % number of sets of localization
-NSET = 5;
+NSET = 500;
 % number of iteration
 NI = 3600;
 mean_free_path = 18e-6;
+
 field = 0;
 field_abs = 0;
 rand_x = randn(1,NSET);
 rand_y = randn(1,NSET);
 % For path 1, light is coming in the orignal point and coming out at (1,1,0.01) point. 
 for i=1: NSET
-point_out = [rand_x(i)*2.0e-06  2.0e-06*rand_y(i) 0.0e-06];
-phi = linspace(-pi,pi,NI);
+point_out = [rand_x(i)*2.0e-06  2.0e-06*rand_y(i) 0.01e-06];
+phi = linspace(-pi,pi,3600);
 phase_1_in = 0;
 cos_theta = 0.848;
 sin_theta = 0.53;
@@ -33,5 +34,6 @@ field_2 = exp(k*1i*(phase_2_in + phase_2_out));
 path = pathlength_creator(mean_free_path,NI);
 field = (field_1 + field_2);
 field_abs = abs(field) + field_abs;
+
 end
-polar(phi,field_abs.^2);
+polar(phi,field_abs);
