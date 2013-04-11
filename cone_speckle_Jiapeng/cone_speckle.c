@@ -154,13 +154,13 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
  *
  */
 
-k_t random_spp_wavevector(double k_spp_abs,double* gaussian_k, gsl_rng *r){
+k_t random_spp_wavevector(double k_spp_abs, double k_light, double* gaussian_k, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
 	int randn = random_int(r,499);
 	k_abs = gaussian_k[randn];
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
-	k.kz = 0.0;
+	k.kz = sqrt(k_light*k_light - k_abs*k_abs);
 	k.kx = k_abs * sin(theta);
 	k.ky = k_abs * cos(theta);
 	return k;
@@ -274,9 +274,9 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	 * */
 	double k_spp_abs = 2.00329*2.0*M_PI/lambda_light*sin(32.0*M_PI/180.0);/*spp wave vector on LAH79 with angle of theta_sp
 	  = 32.0 degree*/
-	/* For the perpendicular component of the wave_vector*/
+	/* For wave_vector of light*/
 	/* wavevector on LAH79 with angle of theta_sp = 32.0 degree*/
-	double k_per_abs = 2.00329*2.0*M_PI/lambda_light*cos(32.0*M_PI/180.0);
+	double k_light = 2.00329*2.0*M_PI/lambda_light;
 	double mean_free_path = 18.0e-6;/*mean free path of spp*/
 	int next_scatterer_index = next_scatter_index(first_scatt_index,NSCAT,r,matrix);
 	int curr_scatterer_index = first_scatt_index;
@@ -285,7 +285,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	// TODO: what the distance should be take here, test just 600e-6
-	k_t k_out = random_spp_wavevector(k_spp_abs,gaussian_k, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs,k_light,gaussian_k, r);
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -303,7 +303,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	field.field_abs = cexp(1.0i*k_spp_abs*pathlength)*cexp(1.0i*phase_by_scatterer(scatts[first_scatt_index]));
 	field.k.kx = k_out.kx;
 	field.k.ky = k_out.ky;
-	field.k.kz = k_per_abs;
+	field.k.kz = k_out.kz;
 	field.scatterer_index = curr_scatterer_index;
 	return field;
 }
@@ -311,10 +311,11 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 /**
  * This is the method for the free space transform  for one set of one scatterers.
  */
-scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatts_orig){
+scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatt_orig){
 	scatterer_t location;
-	location.x = scatts_orig.x + field.k.kx/field.k.kz*z0;
-	location.y = scatts_orig.y + field.k.ky/field.k.kz*z0;
+	// TODO: should I just get ride of the scatterers original position here.
+	location.x = scatt_orig.x + field.k.kx/field.k.kz*z0;
+	location.y = scatt_orig.y + field.k.ky/field.k.kz*z0;
 	location.z = z0;
 	return location;
 }
@@ -355,7 +356,7 @@ int main(int argc, char **argv) {
 	   */
 
 	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 100000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
@@ -547,7 +548,7 @@ int main(int argc, char **argv) {
 	  dims[1]=cam.cam_sy;
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","out_s2000_w5_10000_10000.h5");
+	  sprintf(filename,"%s","out_s2000_w5_50000_50000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
