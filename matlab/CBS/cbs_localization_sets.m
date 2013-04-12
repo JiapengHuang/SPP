@@ -5,7 +5,7 @@ k = 9.9417e+06;
 % number of sets of localization
 NSET = 1000;
 % distance between the input and output scatterer. The smaller distance the rougher surface is. 
-dis = 2e-06;
+dis = 0.6e-06;
 field = 0;
 field_abs = 0;
 rand_x = randn(1,NSET);
