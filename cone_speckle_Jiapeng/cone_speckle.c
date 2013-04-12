@@ -157,7 +157,7 @@ bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r)
 k_t random_spp_wavevector(double k_spp_abs, double k_light, double* gaussian_k, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	int randn = random_int(r,499);
+	int randn = random_int(r,9999);
 	k_abs = gaussian_k[randn];
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
 	k.kz = sqrt(k_light*k_light - k_abs*k_abs);
@@ -314,8 +314,8 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatt_orig){
 	scatterer_t location;
 	// TODO: should I just get ride of the scatterers original position here.
-	location.x = scatt_orig.x + field.k.kx/field.k.kz*z0;
-	location.y = scatt_orig.y + field.k.ky/field.k.kz*z0;
+	location.x = field.k.kx/field.k.kz*z0;
+	location.y = field.k.ky/field.k.kz*z0;
 	location.z = z0;
 	return location;
 }
@@ -355,7 +355,7 @@ int main(int argc, char **argv) {
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
 	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/
+	  unsigned long UP_NI = 500000;                        /*Upper iteration times for each scatterer*/
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
 	  field_t field;
@@ -377,8 +377,8 @@ int main(int argc, char **argv) {
 
 	/*Gaussian profile in k space read from file */
 	  double *gaussian_k = NULL;
-	  gaussian_k = malloc(500*sizeof(double));
-	  bzero(gaussian_k,500*sizeof(double));
+	  gaussian_k = malloc(10000*sizeof(double));
+	  bzero(gaussian_k,10000*sizeof(double));
 
 	  complex double *ccd_all = NULL;
 	  ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
@@ -404,7 +404,7 @@ int main(int argc, char **argv) {
 	  log_info("Reading from %s.",filename2);
 	  FILE *fp2 = fopen(filename2,"r");
 	  check(fp2, "Failed to open %s for reading.", filename2);
-	  for (i = 0; i < 500; ++i) {
+	  for (i = 0; i < 10000; ++i) {
 		  fscanf(fp2,"%lf",&gaussian_k[i]);
 		  fscanf(fp2,"\n");
 	  }
@@ -547,7 +547,7 @@ int main(int argc, char **argv) {
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
 
-	  sprintf(filename,"%s","out_s2000_w5_50000_50000.h5");
+	  sprintf(filename,"%s","out_s2000_w7_50000_500000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
