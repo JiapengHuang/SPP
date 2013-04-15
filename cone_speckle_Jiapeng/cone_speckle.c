@@ -346,8 +346,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  unsigned long LOW_NI = 30000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/ 
+	  unsigned long LOW_NI = 50000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 30000;                        /*Upper iteration times for each scatterer*/ 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
 	  field_t field;
