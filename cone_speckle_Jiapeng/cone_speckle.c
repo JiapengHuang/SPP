@@ -27,7 +27,7 @@
 
 int NSCAT = 2000;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 7.0e-6;                   /*minimun 5.0e-6*/
+double waist = 15.0e-6;                   /*minimun 5.0e-6*/
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(100.0e-6)/2;
 double scany_edge = -(100.0e-6)/2;
@@ -346,7 +346,7 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  unsigned long LOW_NI = 20000;                       /* lower iteration times for each scatterer*/
+	  unsigned long LOW_NI = 30000;                       /* lower iteration times for each scatterer*/
 	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/ 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
@@ -539,7 +539,7 @@ int main(int argc, char **argv) {
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
 
-	  sprintf(filename,"%s","out_s2000_w7_50000_20000.h5");
+	  sprintf(filename,"%s","out_s2000_w7_50000_30000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
@@ -582,5 +582,3 @@ int main(int argc, char **argv) {
 	  error:
 	  return 1;
 }
-
-
