@@ -27,7 +27,7 @@
 
 int NSCAT = 300;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 5.0e-6;                   /*minimun 5.0e-6*/
+double waist = 10.0e-6;                   /*minimun 5.0e-6*/
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(50.0e-6)/2;
 double scany_edge = -(50.0e-6)/2;
@@ -539,7 +539,7 @@ int main(int argc, char **argv) {
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
 
-	  sprintf(filename,"%s","out_s300_w5_50000_30000.h5");
+	  sprintf(filename,"%s","out_s300_w10_50000_30000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
