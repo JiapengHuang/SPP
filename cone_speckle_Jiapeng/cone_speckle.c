@@ -346,8 +346,8 @@ int main(int argc, char **argv) {
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  unsigned long LOW_NI = 30000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 50000;                        /*Upper iteration times for each scatterer*/ 
+	  unsigned long LOW_NI = 100000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 100000;                        /*Upper iteration times for each scatterer*/ 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
 	  field_t field;
@@ -539,7 +539,7 @@ int main(int argc, char **argv) {
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
 
-	  sprintf(filename,"%s","out_s300_w5_50000_30000.h5");
+	  sprintf(filename,"%s","out_s300_w5_100000_100000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
