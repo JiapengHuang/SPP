@@ -1,0 +1,36 @@
+Tue Apr 23 11:06:59 CEST 2013
+
+Some notes to get you started.
+
+The program must be compiled and run from woody.  To access woody from
+cshpc, just enter
+
+	ssh woody
+
+You have to load the proper modules to get the program to compile
+
+	module load intel64
+	module load intelmpi
+	module load gsl
+
+To start an interactive session with one node for 15 minutes
+
+	qsub -l nodes=1:ppn=4 -X -I
+
+Note that ppn must always be 4.
+
+To submit the job from the script mpi_example_qsub.sh with 8 cpus, edit the
+script and type
+
+	qsub mpi_example_qsub.sh
+
+To see the status of your jobs type
+
+	qstat
+
+To delete a running job, type
+
+	qdel <job_id>
+
+where <job_id> is a number you obtain from the qstat command.
+
