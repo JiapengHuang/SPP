@@ -27,7 +27,7 @@
 
 int NSCAT = 300;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 5.0e-6;                   /*minimun 5.0e-6*/
+double waist = 15.0e-6;                   /*minimun 5.0e-6*/
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(50.0e-6)/2;
 double scany_edge = -(50.0e-6)/2;
@@ -319,8 +319,8 @@ scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatt_orig){
  * of z0.
  */
 int field_on_ccd(double distance, scatterer_t location,scatterer_t scatt, field_t field, camera_t cam, complex double *ccd){
-	  double dx = cam.cam_lx/(cam.cam_sx-1);
-	  double dy = cam.cam_ly/(cam.cam_sy-1);
+	  double dx = cam.cam_lx/(cam.cam_sx);
+	  double dy = cam.cam_ly/(cam.cam_sy);
 	  double phase = 0.0;
 	  //int cam_sx = cam.cam_sx;  /* unused */
 	  int cam_sy = cam.cam_sy;
@@ -341,14 +341,14 @@ int field_on_ccd(double distance, scatterer_t location,scatterer_t scatt, field_
 int main(int argc, char **argv) {
 
 	/* program variables */
-	  unsigned int i,j,m,n;                       /* variables to iterate over */
+	  unsigned long i,j,m,n;                       /* variables to iterate over */
 	  /*
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	   * The total iteration times should be LOW_NI*UP_NI.
 	   */
-	  unsigned long LOW_NI = 100000;                       /* lower iteration times for each scatterer*/
-	  unsigned long UP_NI = 100000;                        /*Upper iteration times for each scatterer*/ 
-	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
+	  unsigned long LOW_NI = 2000;                       /* lower iteration times for each scatterer*/
+	  unsigned long UP_NI = 5000;                        /*Upper iteration times for each scatterer*/ 
+	  camera_t cam = {0.20,0.20,2048,2048};     /* initialize the cam struct*/
 
 	  field_t field;
 
@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
 	  r = gsl_rng_alloc(T);
 	  gsl_rng_set(r,rseed);
 
-	  int gaussian_sum = 0;
+	  unsigned long gaussian_sum = 0;
 	  j = 0;
 	  n = 1;
 	  gaussian_profile_creator(scatts,waist, UP_NI*LOW_NI,NSCAT,gaussian_beam);
@@ -503,6 +503,7 @@ int main(int argc, char **argv) {
 	  double *tmp_N = NULL;
 	  tmp_N = malloc(size_none_zero*sizeof(double));
 	  check_mem(tmp_N);
+
 	  j = 0;
 	  for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
 		  if(tmp[i]!=0.0){
@@ -539,7 +540,7 @@ int main(int argc, char **argv) {
 	  dataspace = H5Screate_simple(2,dims,NULL);
 	  bzero(filename,FILENAME_MAX*sizeof(char));
 
-	  sprintf(filename,"%s","out_s300_w5_100000_100000.h5");
+	  sprintf(filename,"%s","out_s300_w15_2000_5000.h5");
 	  file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 	  dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 
