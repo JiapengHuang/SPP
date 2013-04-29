@@ -11,7 +11,7 @@ LIBRARY_PATH =
 
 LIBS = -lgsl -lgslcblas -lhdf5 -lz -lm
 
-OBJS = cone_speckle.o
+OBJS = cone_speckle.o tsvread.o
 
 all : $(TARGET)
 

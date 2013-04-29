@@ -77,7 +77,7 @@ int main(int argc, char **argv){
   }
 
   for (i = 0; i < NSCAT; ++i) {
-	fprintf(fp,"%-12.12f %-12.12f %-12.12f\n",scatt[i].x,scatt[i].y,scatt[i].z);
+	fprintf(fp,"%-12.12f\t%-12.12f\t%-12.12f\n",scatt[i].x,scatt[i].y,scatt[i].z);
   }
   fclose(fp);
 
