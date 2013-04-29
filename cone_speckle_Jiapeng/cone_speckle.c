@@ -7,12 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <hdf5.h>
 #include <stdbool.h>
 #include <string.h>
 #include <malloc.h>
 #include <sys/types.h>
 #include <float.h>
-#include <hdf5.h>        /* hdf5 output */
 #include <time.h>
 #include <ctype.h>
 #include <unistd.h>      /* command line arguments, get memory */
@@ -20,14 +20,20 @@
 #include <assert.h>
 #include <complex.h>
 #include <gsl/gsl_rng.h> /* random number generator using mt19937 */
-
+#include <gsl/gsl_randist.h>
 #include <errno.h>
 #include <error.h>
 #include "zed-debug.h"   /* useful debug macros */
+#include "tsvread.h"     /* read tab seperated values files */
 
-int NSCAT = 300;                         /* the scatterer number */
+/* you should really use #define here, or make them real varaibles */
+int NSCAT = 20;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
+<<<<<<< HEAD
 double waist = 15.0e-6;                   /*minimun 5.0e-6*/
+=======
+double waist = 10.0e-6;                   /*minimun 5.0e-6*/
+>>>>>>> 8288ad45f36207581813533cfdb60fea4b2f8a91
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(50.0e-6)/2;
 double scany_edge = -(50.0e-6)/2;
@@ -121,46 +127,44 @@ int gaussian_profile_creator(scatterer_t* scatts,double waist,unsigned long num_
 	}
 	if (error == num_iter) {
 		log_info("Gaussian profile created successfully.");
-	} else {
+	}  else {
 		log_err("Gaussian profile created failure!");
 	}
 	return 0;
 }
 
 
+
+
 /**
  *
- * This is the method to create the exponential probability function for the spp multiple scattering.
+ * This is the method to create the exponential probability function for
+ * the spp multiple scattering.
  *
  */
-bool is_radiation_out(double pathlength, double mean_free_pathlength,gsl_rng *r){
-	double random_probability = 0.0;
-	double out_probability = 0.0;
-	bool out = false;
-	random_probability = random_double_range(r, 0.0, 1.0);
-	out_probability = cexp(-(pathlength/mean_free_pathlength));
-	if(random_probability >= out_probability){
-		out = true;
-	}
-	else {
-		out = false;
-	}
-	return out;
-}
+bool is_radiation_out(double pathlength, double
+		mean_free_pathlength,gsl_rng *r){ double random_probability = 0.0;
+	double out_probability = 0.0; bool out = false; random_probability =
+		random_double_range(r, 0.0, 1.0); out_probability =
+		cexp(-(pathlength/mean_free_pathlength)); if(random_probability >=
+				out_probability){ out = true; } else { out = false; } return out; }
 /**
  *
- * This is the method to create a Gaussian distribution wave vector for the SPP.
- * In this case, the wave vector of the spp is depended on the postion of scatterer. Here, we define the (0,0) in x-,y- axis is the centeral of the Gaussian beam with the vaule of k_spp_abs.
+ * This is the method to create a Gaussian distribution wave vector for the
+ * SPP.  In this case, the wave vector of the spp is depended on the
+ * postion of scatterer. Here, we define the (0,0) in x-,y- axis is the
+ * centeral of the Gaussian beam with the vaule of k_spp_abs.
  *
  */
 
-k_t random_spp_wavevector(double k_spp_abs, double k_light, double* gaussian_k, gsl_rng *r){
+k_t random_spp_wavevector(double k_spp_abs, double k_light,gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	int randn = random_int(r,9999);
-	k_abs = gaussian_k[randn];
+	double sigma = 0.016*k_spp_abs;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
+	k_abs = k_spp_abs + gsl_ran_gaussian(r, sigma);
 	k.kz = sqrt(k_light*k_light - k_abs*k_abs);
+	//printf("%g %g\n",k_spp_abs,k_abs);
 	k.kx = k_abs * sin(theta);
 	k.ky = k_abs * cos(theta);
 	return k;
@@ -197,7 +201,7 @@ double angle_between_vector(k_t k_1, k_t k_2){
 }
 
 /*
- * this is the method to create the index of the next scatter */
+ * ihis is the method to create the index of the next scatter */
 int next_scatter_index(int current_index,int NSCAT, gsl_rng *r, index_bounds *matrix){
 	int next_scatter_index,i;
 	next_scatter_index = 0;
@@ -260,7 +264,7 @@ double phase_by_scatterer(scatterer_t scatt){
 	return phase;
 }
 
-field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix, double*gaussian_k){
+field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix){
 	/* Constances definition
 	 *
 	 * Here we define the spp happens on the gold film surface.
@@ -278,7 +282,7 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 	scatterer_t scatt_next = scatts[next_scatterer_index];
 	double pathlength = 0.0;
 	// TODO: what the distance should be take here, test just 600e-6
-	k_t k_out = random_spp_wavevector(k_spp_abs,k_light,gaussian_k, r);
+	k_t k_out = random_spp_wavevector(k_spp_abs,k_light, r);
 	while(!is_radiation_out(pathlength,mean_free_path, r))
 	{
 		/*
@@ -307,14 +311,13 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatt_orig){
 	scatterer_t location;
 	// TODO: should I just get ride of the scatterers original position here.
-	location.x = field.k.kx/field.k.kz*z0;
-	location.y = field.k.ky/field.k.kz*z0;
+	location.x = field.k.kx/field.k.kz*z0 + scatt_orig.x;
+	location.y = field.k.ky/field.k.kz*z0 + scatt_orig.y;
 	location.z = z0;
 	return location;
 }
 
 /**
- * This is the method to create the field distribution on the ccd chip from a certain distance for the orignal
  * scattering plane. Here we put the ccd chip parallize the x-y plane and has a distance from the orignal point
  * of z0.
  */
@@ -337,10 +340,9 @@ int field_on_ccd(double distance, scatterer_t location,scatterer_t scatt, field_
 	  return 0;
 }
 
-
 int main(int argc, char **argv) {
-
 	/* program variables */
+<<<<<<< HEAD
 	  unsigned int i,j,m,n;                       /* variables to iterate over */
 	  /*
 	   * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
@@ -349,141 +351,166 @@ int main(int argc, char **argv) {
 	  unsigned long LOW_NI = 200000;                       /* lower iteration times for each scatterer*/
 	  unsigned long UP_NI = 200000;                        /*Upper iteration times for each scatterer*/ 
 	  camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
+=======
+	unsigned int i,j,m,n;                       /* variables to iterate over */
+	/*
+	 * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
+	 * The total iteration times should be LOW_NI*UP_NI.
+	 */
+	unsigned long LOW_NI = 10000;                       /* lower iteration times for each scatterer*/
+	unsigned long UP_NI = 10000;                        /*Upper iteration times for each scatterer*/
+	camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
+>>>>>>> 8288ad45f36207581813533cfdb60fea4b2f8a91
 
-	  field_t field;
+	field_t field;
 
 	/* seed the scatterers */
-	  scatterer_t *scatts = NULL;
-	  scatts = malloc(NSCAT*sizeof(scatterer_t));
-	  check_mem(scatts);
+	scatterer_t *scatts = NULL;
+	scatts = malloc(NSCAT*sizeof(scatterer_t));
+	check_mem(scatts);
+
 	/* the locations */
-	  scatterer_t location;
-	/*free path array*/
-	 // double *free_path = NULL;
-	//  free_path = malloc(LOW_NI*UP_NI*sizeof(double));
+	scatterer_t location;
 
 	/* the radiation counting for NSCATS */
-	  int *visiting_array = NULL;
-	  visiting_array = malloc(NSCAT*sizeof(int));
-	  bzero(visiting_array,NSCAT*sizeof(int));
+	int *visiting_array = NULL;
+	visiting_array = calloc(NSCAT,sizeof(int));
+	check_mem(visiting_array);
 
-	/*Gaussian profile in k space read from file */
-	  double *gaussian_k = NULL;
-	  gaussian_k = malloc(10000*sizeof(double));
-	  bzero(gaussian_k,10000*sizeof(double));
+	complex double *ccd_all = NULL;
+	ccd_all = calloc(cam.cam_sx*cam.cam_sy,sizeof(complex double));
+	check_mem(ccd_all);
 
-	  complex double *ccd_all = NULL;
-	  ccd_all = malloc(cam.cam_sx*cam.cam_sy*sizeof(complex double));
-	  bzero(ccd_all,cam.cam_sx*cam.cam_sy*sizeof(complex double));
+	/* check memory, should probably  */
+	//long page_size = sysconf(_SC_PAGE_SIZE);
+	//long pages_avail = sysconf(_SC_AVPHYS_PAGES);
+	//long pages_tot = sysconf(_SC_PHYS_PAGES);
+	//if(pages_tot*page_size<8*cam.cam_sx*cam.cam_sy*2*sizeof(complex double)){
+	//	error("Size of output arrays exceed avaliable memory.");
+	//}
 
-	  unsigned long *gaussian_beam = malloc(NSCAT*sizeof(unsigned long));
+
+	unsigned long *gaussian_beam = calloc(NSCAT,sizeof(unsigned long));
+	check_mem(gaussian_beam);
 	/* To read the scatterers positions from the file into the scatterer array*/
-	  char filename[FILENAME_MAX];
-	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","Scatterers.txt");
-	  log_info("Reading from %s.",filename);
-	  FILE *fp = fopen(filename,"r");
-	  check(fp, "Failed to open %s for reading.", filename);
-	  for (i = 0; i < NSCAT; ++i) {
-		  fscanf(fp,"%lf %lf %lf",&scatts[i].x,&scatts[i].y,&scatts[i].z);
-		  fscanf(fp,"\n");
-	  }
-	  fclose(fp);
-	/* To read the gaussian profile for k-vector*/
-	  char filename2[FILENAME_MAX];
-	  bzero(filename2,FILENAME_MAX*sizeof(char));
-	  sprintf(filename2,"%s","Gaussian_k.txt");
-	  log_info("Reading from %s.",filename2);
-	  FILE *fp2 = fopen(filename2,"r");
-	  check(fp2, "Failed to open %s for reading.", filename2);
-	  for (i = 0; i < 10000; ++i) {
-		  fscanf(fp2,"%lf",&gaussian_k[i]);
-		  fscanf(fp2,"\n");
-	  }
-	  fclose(fp2);
 
+	char filename[FILENAME_MAX];
+	bzero(filename,FILENAME_MAX*sizeof(char));
+	sprintf(filename,"%s","Scatterers.txt");
+	log_info("Reading from %s.",filename);
 
-	  index_bounds **Matrix = NULL;
-	  Matrix = (index_bounds**)malloc(NSCAT*sizeof(index_bounds*));
-	  check_mem(Matrix);
-	  for(i=0;i<NSCAT;++i){
-		  Matrix[i] = (index_bounds*)malloc(NSCAT*sizeof(index_bounds));
-		  check_mem(Matrix[i]);
-		  conduc_matrix(NSCAT, scatts, i, Matrix[i]);
-		}
+	/* use tsvread to get list of scatterers */
+	tsv_t *tsv = tsv_fread(filename);
+		for(i=0;i<NSCAT;++i){
+		memcpy(scatts,*tsv->data,sizeof(scatterer_t));
+		tsv->data++; scatts++;
+	} tsv->data-=i; scatts-=i;
+	tsv_free(tsv);
 
-	  //for (i = 0; i < NSCAT; ++i) {
-		 // for (m = 0; m < NSCAT-1; ++m) {
-			//  printf("%12.12f %d ",Matrix[i][m].upper_bound,Matrix[i][m].index);
-		//  }
-		//  printf("%d\n",i);
-	 // }
+	index_bounds **Matrix = NULL;
+	Matrix = (index_bounds**)malloc(NSCAT*sizeof(index_bounds*));
+	check_mem(Matrix);
+	for(i=0;i<NSCAT;++i){
+		Matrix[i] = (index_bounds*)malloc(NSCAT*sizeof(index_bounds));
+		check_mem(Matrix[i]);
+		conduc_matrix(NSCAT, scatts, i, Matrix[i]);
+	}
 
-	  log_info("Conductance matrix finished");
+	log_info("Conductance matrix finished");
 
-	/* initialize the random number generator */
-	  int rseed = (int)time(NULL);
-	  const gsl_rng_type *T;
-	  gsl_rng *r;
-	  gsl_rng_env_setup();
-	  T = gsl_rng_default;
-	  r = gsl_rng_alloc(T);
-	  gsl_rng_set(r,rseed);
+/* initialize the random number generator */
+	int rseed = (int)time(NULL);
+	const gsl_rng_type *T;
+	gsl_rng *r;
+	gsl_rng_env_setup();
+	T = gsl_rng_default;
+	r = gsl_rng_alloc(T);
+	srand(rseed);
+	gsl_rng_set(r,rseed);
 
-	  int gaussian_sum = 0;
-	  j = 0;
-	  n = 1;
-	  gaussian_profile_creator(scatts,waist, UP_NI*LOW_NI,NSCAT,gaussian_beam);
-	  for (m = 0; m < UP_NI; ++m) {
-		  for (i = 0; i < LOW_NI; ++i) {
-			  if (gaussian_sum < gaussian_beam[j]) {
-				++gaussian_sum;
-				field = single_field_spp(j, scatts, NSCAT,r,Matrix[j],gaussian_k);
-				++visiting_array[field.scatterer_index];
-				location = fst_transfer(field,z0,scatts[field.scatterer_index]);
-				field_on_ccd(z0,location,scatts[field.scatterer_index],field,cam,ccd_all);
-			} else {
-				++j;
-				gaussian_sum = 0;
-				if (j == (int)(0.1*n*NSCAT)) {
-					log_info("%d0 percent has been done.",n);
-					++n;
-				}
+	int gaussian_sum = 0;
+	j = 0;
+	n = 1;
+	gaussian_profile_creator(scatts,waist, UP_NI*LOW_NI,NSCAT,gaussian_beam);
+	for (m = 0; m < UP_NI; ++m) {
+		for (i = 0; i < LOW_NI; ++i) {
+			if (gaussian_sum < gaussian_beam[j]) {
+			++gaussian_sum;
+			field = single_field_spp(j, scatts, NSCAT,r,Matrix[j]);
+			++visiting_array[field.scatterer_index];
+			location = fst_transfer(field,z0,scatts[field.scatterer_index]);
+			field_on_ccd(z0,location,scatts[field.scatterer_index],field,cam,ccd_all);
+		} else {
+			++j;
+			gaussian_sum = 0;
+			if (j == (int)(0.1*n*NSCAT)) {
+				log_info("Process %d0 percent done.",n);
+				++n;
 			}
-		  }
-	  }
-	  log_info("Field generated.");
+		}
+		}
+	}
+	log_info("Field generated.");
 
-		/**
-		 * Write the tmp array as a way to do the cross-correlation function.
-		 */
-	  bzero(filename,FILENAME_MAX*sizeof(char));
-	  sprintf(filename,"%s","visiting_counter_65_2.txt");
-	  FILE *fp_counting = fopen(filename,"w");
-	  check(fp_counting, "Failed to open %s for writing.", filename);
+		double *tmp = NULL;
+		tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
+		check_mem(tmp);
 
-	  log_info("Writing to %s.",filename);
-	  for (i = 0; i < NSCAT; ++i) {
-		  fprintf(fp_counting,"%d\n",visiting_array[i]);
-	  }
-	  fclose(fp_counting);
-
-	  double *tmp = NULL;
-	  tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
-	  check_mem(tmp);
-
-	  /* normalize tmp, first by finding max */
-	  double max = 0;
-	  for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
-		  tmp[i]=cabs(ccd_all[i])*cabs(ccd_all[i]);
-		  if(tmp[i]>max){ max=tmp[i]; }
-
-	  }
+		/* normalize tmp, first by finding max */
+		double max = 0;
+		for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+			tmp[i]=cabs(ccd_all[i])*cabs(ccd_all[i]);
+			if(tmp[i]>max){
+				max=tmp[i];
+			}
+	 }
 		/* then dividing by max */
-	  for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
-		  tmp[i]/=max;
-	  }
+		for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+			tmp[i]/=max;
+			//printf("%d",tmp[i]);
+		}
+	/**
+		* Write the tmp array as a way to do the
+		* cross-correlation function.
+		*/
+		bzero(filename,FILENAME_MAX*sizeof(char));
+		sprintf(filename,"%s","tmp.txt");
+		FILE *fp_tmp = fopen(filename,"w");
+		check(fp_tmp, "Failed to open %s for writing.", filename);
+		log_info("Writing to %s.",filename);
+		for (i = 0; i < cam.cam_sx*cam.cam_sy; ++i) {
+			fprintf(fp_tmp,"%-12.12f\n",tmp[i]);
+		}
+		fclose(fp_tmp);
 
+		/* output file */
+		hid_t file,dataset,dataspace;
+		herr_t status = 0;
+		hsize_t dims[2]; /* dimensionality of the set */
+		dims[0]=cam.cam_sx;
+		dims[1]=cam.cam_sy;
+
+		dataspace = H5Screate_simple(2,dims,NULL);
+		bzero(filename,FILENAME_MAX*sizeof(char));
+		sprintf(filename,"%s","out_s300_w10_10000_10000_20n.h5");
+		file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+		dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+		log_info("Writing to HDF5 file %s.",filename);
+		status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+				H5P_DEFAULT, tmp);
+		check(status>=0,"Can't write dataset /e2 to %s",filename);
+
+		/* write the real and imaginary parts as well */
+
+		dataset =	H5Dcreate1(file,"/er",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+		for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+			tmp[i]=creal(ccd_all[i]);
+		}
+		status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+				H5P_DEFAULT, tmp);
+		check(status>=0,"Can't write dataset /er to %s",filename);
+
+<<<<<<< HEAD
 		/**
 		 * Write the tmp array as a way to do the cross-correlation function.
 		 */
@@ -577,8 +604,35 @@ int main(int argc, char **argv) {
 	  free(Matrix);
 	  free(gaussian_k);
 	  log_info("Program finished.");
+=======
+		dataset = H5Dcreate1(file,"/ei",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
+		for(i=0;i<cam.cam_sx*cam.cam_sy;++i){
+			tmp[i]=cimag(ccd_all[i]);
+		}
+		status = H5Dwrite(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+				H5P_DEFAULT, tmp);
+		check(status>=0,"Can't write dataset /ei to %s",filename);
 
-	  return 0;
-	  error:
-	  return 1;
+		/* clean up */
+		log_info("Cleaning up.");
+		free(tmp);
+		status = H5Dclose(dataset);
+		status = H5Sclose(dataspace);
+		status = H5Fclose(file);
+
+	gsl_rng_free(r);
+	free(scatts);
+	//free(free_path);
+	free(visiting_array);
+	free(ccd_all);
+	for(i=0;i<NSCAT;++i){
+		free(Matrix[i]);
+	}
+	free(Matrix);
+	log_info("Program finished.");
+>>>>>>> 8288ad45f36207581813533cfdb60fea4b2f8a91
+
+	return 0;
+	error:
+	return 1;
 }
