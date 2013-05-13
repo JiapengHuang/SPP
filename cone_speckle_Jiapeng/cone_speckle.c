@@ -260,7 +260,7 @@ phase = 2.0*M_PI*scatt.x/lambda_light*sin(32.0*M_PI/180.0);
 return phase;
 }
 
-field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix){
+field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, gsl_rng *r,index_bounds *matrix,int iter_num, double* distance_array){
 /* Constances definition
 *
 * Here we define the spp happens on the gold film surface.
@@ -290,6 +290,9 @@ curr_scatterer_index = next_scatterer_index;
 next_scatterer_index = next_scatter_index(curr_scatterer_index,NSCAT,r,matrix);
 scatt_next = scatts[next_scatterer_index];
 }
+
+double distance = distance_two_scatters(scatts[next_scatterer_index],scatts[first_scatt_index]); 
+distance_array[iter_num] = distance;
 // TODO: we first get the coefficient out
 // coefficient = spp_radiation_co(k_spp_abs,radi_angle);
 // field.field_abs = sqrt(coefficient)*cexp(1.0i*k_spp_abs*pathlength);
@@ -339,6 +342,8 @@ return 0;
 int main(int argc, char **argv) {
 /* program variables */
 unsigned int i,j,m,n; /* variables to iterate over */
+
+int iter_num = 0;
 /*
 * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 * The total iteration times should be LOW_NI*UP_NI.
@@ -361,6 +366,10 @@ scatterer_t location;
 int *visiting_array = NULL;
 visiting_array = calloc(NSCAT,sizeof(int));
 check_mem(visiting_array);
+
+double *distance_array = NULL;
+distance_array = calloc(UP_NI*LOW_NI,sizeof(double));
+check_mem(distance_array);
 
 complex double *ccd_all = NULL;
 ccd_all = calloc(cam.cam_sx*cam.cam_sy,sizeof(complex double));
@@ -421,7 +430,11 @@ for (m = 0; m < UP_NI; ++m) {
 for (i = 0; i < LOW_NI; ++i) {
 if (gaussian_sum < gaussian_beam[j]) {
 ++gaussian_sum;
-field = single_field_spp(j, scatts, NSCAT,r,Matrix[j]);
+if((m*UP_NI+i+1)%100==0)
+{
+++iter_num;
+}
+field = single_field_spp(j, scatts, NSCAT,r,Matrix[j],iter_num, distance_array);
 ++visiting_array[field.scatterer_index];
 location = fst_transfer(field,z0,scatts[field.scatterer_index]);
 field_on_ccd(z0,location,scatts[field.scatterer_index],field,cam,ccd_all);
@@ -435,7 +448,20 @@ log_info("Process %d0 percent done.",n);
 }
 }
 }
+
+log_info("iter_num is %d", iter_num);
+
 log_info("Field generated.");
+
+bzero(filename,FILENAME_MAX*sizeof(char));
+sprintf(filename,"%s","distance.txt");
+FILE *fp_dis = fopen(filename,"w");
+check(fp_dis, "Failed to open %s for writing.", filename);
+log_info("Writing to %s.",filename);
+for (i = 0; i < iter_num; ++i) {
+fprintf(fp_dis,"%-12.12f\n",distance_array[i]);
+}
+fclose(fp_dis);
 
 double *tmp = NULL;
 tmp = malloc(cam.cam_sx*cam.cam_sy*sizeof(double));
