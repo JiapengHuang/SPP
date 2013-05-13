@@ -20,7 +20,6 @@
 #include <assert.h>
 #include <complex.h>
 #include <gsl/gsl_rng.h> /* random number generator using mt19937 */
-#include <gsl/gsl_randist.h>
 #include <errno.h>
 #include <error.h>
 #include "zed-debug.h"   /* useful debug macros */
@@ -29,7 +28,7 @@
 /* you should really use #define here, or make them real varaibles */
 int NSCAT = 20;                         /* the scatterer number */
 double z0 = 0.13;                       /* the camera distance from the orginal plane*/
-double waist = 10.0e-6;                   /*minimun 5.0e-6*/
+double waist = 40.0e-6;                   /*minimun 5.0e-6*/
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(50.0e-6)/2;
 double scany_edge = -(50.0e-6)/2;
@@ -153,12 +152,12 @@ bool is_radiation_out(double pathlength, double
  *
  */
 
-k_t random_spp_wavevector(double k_spp_abs, double k_light,gsl_rng *r){
+k_t random_spp_wavevector(double k_spp_abs, double k_light, gsl_rng *r){
 	k_t k;
 	double k_abs = 0.0;
-	double sigma = 0.016*k_spp_abs;
+	double sigma = 0.016;
 	double theta = random_double_range(r, 0.0, 2.0*M_PI);
-	k_abs = k_spp_abs + gsl_ran_gaussian(r, sigma);
+	k_abs = k_spp_abs+gsl_ran_gaussian(r, sigma);
 	k.kz = sqrt(k_light*k_light - k_abs*k_abs);
 	//printf("%g %g\n",k_spp_abs,k_abs);
 	k.kx = k_abs * sin(theta);
@@ -307,8 +306,8 @@ field_t single_field_spp(int first_scatt_index, scatterer_t *scatts,int NSCAT, g
 scatterer_t fst_transfer(field_t field, double z0, scatterer_t scatt_orig){
 	scatterer_t location;
 	// TODO: should I just get ride of the scatterers original position here.
-	location.x = field.k.kx/field.k.kz*z0 + scatt_orig.x;
-	location.y = field.k.ky/field.k.kz*z0 + scatt_orig.y;
+	location.x = field.k.kx/field.k.kz*z0;
+	location.y = field.k.ky/field.k.kz*z0;
 	location.z = z0;
 	return location;
 }
@@ -343,8 +342,8 @@ int main(int argc, char **argv) {
 	 * To avoid the memory limitation, here we use a LOW_NI and UP_NI to get enough iteration times.
 	 * The total iteration times should be LOW_NI*UP_NI.
 	 */
-	unsigned long LOW_NI = 10000;                       /* lower iteration times for each scatterer*/
-	unsigned long UP_NI = 10000;                        /*Upper iteration times for each scatterer*/
+	unsigned long LOW_NI = 2000;                       /* lower iteration times for each scatterer*/
+	unsigned long UP_NI = 4000;                        /*Upper iteration times for each scatterer*/
 	camera_t cam = {0.20,0.20,512,512};     /* initialize the cam struct*/
 
 	field_t field;
@@ -429,7 +428,7 @@ int main(int argc, char **argv) {
 			++j;
 			gaussian_sum = 0;
 			if (j == (int)(0.1*n*NSCAT)) {
-				log_info("Process %d0 percent done.",n);
+				log_info("Process %d %d0 percent done.",rank,n);
 				++n;
 			}
 		}
@@ -477,7 +476,7 @@ int main(int argc, char **argv) {
 
 		dataspace = H5Screate_simple(2,dims,NULL);
 		bzero(filename,FILENAME_MAX*sizeof(char));
-		sprintf(filename,"%s","out_s300_w10_10000_10000_20n.h5");
+		sprintf(filename,"%s","out_s300_w40_200000_100000_20n.h5");
 		file = H5Fcreate(filename,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
 		dataset = H5Dcreate1(file,"/e2",H5T_NATIVE_DOUBLE,dataspace,H5P_DEFAULT);
 		log_info("Writing to HDF5 file %s.",filename);
@@ -522,6 +521,4 @@ int main(int argc, char **argv) {
 	log_info("Program finished.");
 
 	return 0;
-	error:
-	return 1;
 }
