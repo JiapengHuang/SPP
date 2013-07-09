@@ -137,8 +137,8 @@ int main(int argc, char **argv){
 
   for(i=0;i<NSCAT;++i){
     scatt[i].x=random_double_range(r,-scanxy/2.0,scanxy/2.0);
-    scatt[i].y=random_double_range(r,-scanxy/2.0,scanxy/2.0);
-    scatt[i].z=random_double_range(r,0,1000e-9);
+    scatt[i].y=random_double_range(r,-scanxy/2.0,scanxy/2.0);	   
+    scatt[i].z=0.0;//random_double_range(r,0,1000e-9);
   }
     
   scatterer_t current_scatterer = scatt[0];

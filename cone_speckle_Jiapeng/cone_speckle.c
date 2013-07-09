@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <complex.h>
 #include <gsl/gsl_rng.h> /* random number generator using mt19937 */
+#include <gsl/gsl_randist.h>
 #include <errno.h>
 #include <error.h>
 #include "zed-debug.h" /* useful debug macros */
@@ -27,10 +28,9 @@
 
 /* you should really use #define here, or make them real varaibles */
 
-int NSCAT = 300; /* the scatterer number */
+int NSCAT = 1000; /* the scatterer number */
 double z0 = 0.13; /* the camera distance from the orginal plane*/
 double waist = 50.0e-6; /*minimun 5.0e-6*/
->>>>>>> 1e92e572ae6ea84ef1da46c28cc644b6e2106451
 double lambda_light = 632.8e-9; /* wavelength of light */
 double scanx_edge = -(50.0e-6)/2;
 double scany_edge = -(50.0e-6)/2;
@@ -225,7 +225,8 @@ for (i = 0; i < NSCAT; ++i) {
 if (i!=scatt_index) {
 pathlength = distance_two_scatters(scatts[i],scatts[scatt_index]);
 pathlength *= 1.0e+6;
-coeff[i] = 1/(pathlength*pathlength);
+coeff[i] = 1/(pathlength);
+//coeff[i] = 1.0/(NSCAT-1);
 coeff_sum += coeff[i];
 }
 }
@@ -349,7 +350,7 @@ int iter_num = 0;
 * The total iteration times should be LOW_NI*UP_NI.
 */
 unsigned long LOW_NI = 10000; /* lower iteration times for each scatterer*/
-unsigned long UP_NI = 5000; /*Upper iteration times for each scatterer*/
+unsigned long UP_NI = 20000; /*Upper iteration times for each scatterer*/
 camera_t cam = {0.20,0.20,512,512}; /* initialize the cam struct*/
 
 field_t field;
@@ -454,7 +455,7 @@ log_info("iter_num is %d", iter_num);
 log_info("Field generated.");
 
 bzero(filename,FILENAME_MAX*sizeof(char));
-sprintf(filename,"%s","distance.txt");
+sprintf(filename,"%s","distance_1000.txt");
 FILE *fp_dis = fopen(filename,"w");
 check(fp_dis, "Failed to open %s for writing.", filename);
 log_info("Writing to %s.",filename);
