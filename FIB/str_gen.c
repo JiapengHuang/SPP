@@ -1,4 +1,4 @@
-/** 
+/* 
 
 This a program to generate the stream file for the FIB litho
 -Jiapeng Huang, 9.July.2013
@@ -24,7 +24,7 @@ This a program to generate the stream file for the FIB litho
 #include <errno.h>
 #include <error.h>
 
-int num_scatterers = 100;
+int num_scatterers = 2500;
 double scat_radius = 0.25; /*in micron*/
 double x_area = 100;
 double y_area = 100;
@@ -38,7 +38,7 @@ int y_index_low = 500;
 int y_index_up = 3500;
 
 /*dwell time */
-int dwell_t = 96; /* dewll_t * 0.1 mircsec
+int dwell_t = 4600; /* dewll_t * 0.1 mircsec
 /*repeating time*/
 int rep = 20;
 
@@ -102,11 +102,33 @@ void setPixel(int x,int y){
     	fclose(fp_1);
 }
 
+void sortFunc(scatterer_t* scatt){
+	int i,j,tempx,tempy;
+	for(i=0 ; i< num_scatterers; i++)
+ 	{
+  		for(j=0 ; j<num_scatterers-i-1 ; j++)
+  		{
+   			if(scatt[j].x>scatt[j+1].x) //Swapping Condition is Checked
+   			{
+    				tempx=scatt[j].x;
+    				scatt[j].x=scatt[j+1].x;
+    				scatt[j+1].x=tempx;
+				tempy=scatt[j].y;
+                                scatt[j].y=scatt[j+1].y;
+                                scatt[j+1].y=tempy;
+   			}
+  		}
+ 	}
+
+}
+
+
 int main(int argc, char **argv) {
 	
 	/*index range for a circle radi*/
 	int scat_radi_index;
 	scat_radi_index = scat_radius/x_area*(x_index_up-x_index_low);
+
 	/* initialize the random number generator */
   	int rseed = (int)time(NULL);
   	const gsl_rng_type *T;
@@ -126,9 +148,11 @@ int main(int argc, char **argv) {
   	assert(scatt!=NULL);
 
   	for(i=0;i<num_scatterers;++i){
-    		scatt[i].x=random_int(r,scanx);
-    		scatt[i].y=random_int(r,scany);
+    		scatt[i].x=random_int(r,scanx) + x_index_low;
+    		scatt[i].y=random_int(r,scany) + y_index_low ;
   	}
+	
+	sortFunc(scatt);
 
 	FILE *fp = fopen("stream.s","w");
        	if (fp == 0) {
@@ -136,9 +160,14 @@ int main(int argc, char **argv) {
         	exit(1);
   	}
 	
-	fprintf(fp,"s\n%d\n",rep);	
+	fprintf(fp,"s\n%d\n%d\n",num_scatterers,rep);
 	fclose(fp);
 	int radi_index ;
+
+/*	for(i=0;i<num_scatterers;++i){
+		setPixel(scatt[i].x,scatt[i].y);
+	}
+*/
 	for(i=0;i<num_scatterers;++i){
 		radi_index = scat_radi_index;
 		while(radi_index >= 0){
